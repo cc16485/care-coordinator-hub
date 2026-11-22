@@ -169,7 +169,7 @@
     return { stageK:stage && stage.k, status:chip ? chip.textContent.trim() : '', ax, name:($('cpTitle') || {}).textContent || (r && r.client_name) || '',
       glance:hit && hit.data, glanceErr:hit && hit.err, lead:l, r, census:cen,
       payer:payKey ? (PAY[payKey] || String(payKey).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())) : '',
-      cc:first(cc), level:ax ? levelFor(ax) : '', care:care.concat(saved('safety_notes').map(x => ({ tone:'warn', t:x.text }))), family:saved('family_notes'), due, today:new Date().toISOString().slice(0, 10) };
+      cc:first(cc), level:ax ? levelFor(ax) : '', care:care.concat(prof.allergies && !/^none known$/i.test(String(prof.allergies)) ? [{ tone:'bad', t:'Allergies: ' + String(prof.allergies).slice(0, 80) }] : []).concat(saved('safety_notes').map(x => ({ tone:'warn', t:x.text }))).concat(String(prof.photos || '').split(',').indexOf('none') > -1 ? [{ tone:'dim', t:'No photos, please' }] : []), family:saved('family_notes'), due, today:new Date().toISOString().slice(0, 10) };
   }
   function goFor(d){
     if(d.kind === 'concern') return "switchTab('mywork')";

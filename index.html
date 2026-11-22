@@ -7645,7 +7645,7 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=16"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
-<script src="client-glance.js?v=3"></script><!-- the client at a glance (2026-10-29) -->
+<script src="client-glance.js?v=4"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
 <script src="staffing-view.js?v=2"></script>
 <script src="end-shift.js?v=9"></script>
@@ -7657,8 +7657,8 @@ The HomeTogether team</pre>
 <script src="katlin-page.js?v=11"></script>
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
-<script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=15"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=16"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -42535,6 +42535,10 @@ async function cl360RenderInto(r, out, px, panes){
     [px+'cp_pets','Pets', prof.pets],
     [px+'cp_entrance','Entrance & parking', prof.entrance],
     [px+'cp_home','The home (stairs, equipment, quirks)', prof.home_notes],
+    /* profile fill, Stage A (2026-11-21): filled from the home visit when empty; the office edits them here */
+    [px+'cp_day','A day in their life (routine, what they like to be called, what good care looks like)', prof.day_in_life],
+    [px+'cp_out','Good days out', prof.good_days_out],
+    [px+'cp_allg','Allergies', prof.allergies],
     [px+'cp_life',(window.LSTORY&&LSTORY.visible())?'Anything else about who they are':'Life story (who they were, what they love)', prof.life_story],
   ];
   const noneBox = (id,checked,label)=>'<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-muted);margin-top:2px;">'
@@ -42547,6 +42551,11 @@ async function cl360RenderInto(r, out, px, panes){
     /* One profile, step 4: the intake's AxisCare checklist answers sit beside the home notes, so the two can't drift apart */
     + (function(){ const ca=(lead&&lead.client_attributes)||{}; const say=v=>v==='yes'?'yes':v==='no'?'no':v==='preferred'?'preferred':'not answered';
         return (lead&&lead.id)?'<div class="field-note" style="margin:8px 0 0;">From the intake checklist (Home &amp; Life tab, AxisCare Attributes): cats '+say(ca.cats)+' · dogs '+say(ca.dogs)+' · smoking in the home '+say(ca.smoking)+'.</div>':''; })()
+    + (function(){ const W={ family:'Photos may be shared with the family', marketing:'Photos may be used in our marketing', none:'No photos, please' };
+        const ph=String(prof.photos||'').split(',').map(k=>W[k.trim()]).filter(Boolean);
+        const ff=(Array.isArray(prof.filled_from)?prof.filled_from:[]).slice(-1)[0];
+        return (ph.length?'<div class="field-note" style="margin:8px 0 0;"><b>Photos</b> (from the signed agreement; caregivers see this on their shift page): '+esc(ph.join(' · '))+'</div>':'')
+          +(ff?'<div class="field-note" style="margin:4px 0 0;">Last filled from '+(ff.from==='visit'?'the home visit':'the signed agreement')+' on '+esc(String(ff.at||'').slice(0,10))+' ('+esc(ff.by||'')+'). Only empty places are filled; a difference becomes a My Work card.</div>':''); })()
     + '<div class="field-note" style="margin:8px 0 3px;">Care level now comes from AxisCare (shown at the top). A care plan review can update it.'+(prof.care_level?' This profile once noted '+esc(prof.care_level)+'.':'')+'</div>'
     + '<div style="margin-top:10px;"><button class="secondary" onclick="cl360SaveProfile(&quot;'+px+'&quot;)">Save home & life</button> <span class="field-note" id="'+px+'cp_saved"></span></div>'
     + (prof.updated_at ? '<div class="field-note" style="margin-top:6px;">last saved '+esc(String(prof.updated_at).slice(0,10))+'</div>' : '');
@@ -42765,6 +42774,7 @@ async function cl360SaveProfile(px){
     pets: g('cp_pets').trim(), entrance: g('cp_entrance').trim(),
     pets_none: chk('cp_pets_none'), entrance_none: chk('cp_ent_none'),
     home_notes: g('cp_home').trim(), life_story: g('cp_life').trim(),
+    day_in_life: g('cp_day').trim(), good_days_out: g('cp_out').trim(), allergies: g('cp_allg').trim(),
     care_level: prev.care_level || '',   // Change 6b: kept as history; AxisCare's class is the level
     updated_at: new Date().toISOString(), updated_by: (ME && ME.name) || '' };
   /* Life Story answers save with Home & Life (2026-10-24): on the client's profile, or on the inquiry before they're in AxisCare */
