@@ -54,7 +54,7 @@
         : '<span class="field-note">Review the contacts once they are set up in AxisCare</span>';
       const em = (a.copies && a.copies.emails) || [], last = em[em.length - 1]
       const mailNote = last ? (last.outcome === 'sent' ? ` · family copy emailed to ${esc(last.to)} ${esc(when(last.at))}` : ` · <span style="color:#a33">family copy not emailed: ${esc(last.detail || last.outcome)}</span>`) : ''
-      const copyBtns = a.status === 'countersigned' && a.has_pdf ? `<button type="button" data-cag-print="${esc(a.id)}">Print family copy</button>${a.answers && a.answers['comm.decline'] === true ? '' : `<button type="button" data-cag-mail="${esc(a.id)}">Email family copy</button>`}` : ''
+      const copyBtns = a.status === 'countersigned' && a.has_pdf ? `<button type="button" data-cag-print="${esc(a.id)}">Print family copy</button>${(a.answers && a.answers['comm.decline'] === true) || (a.office && a.office.paper) ? '' : `<button type="button" data-cag-mail="${esc(a.id)}">Email family copy</button>`}` : ''
       const btn = a.status === 'countersigned' && a.has_pdf ? `<span style="display:flex;gap:6px;flex-wrap:wrap">${rbtn}${copyBtns}<button type="button" class="primary" data-cag-open="${esc(a.id)}">Open signed PDF</button></span>`
         : (a.status === 'draft' || a.status === 'signed') ? `<button type="button" data-cag-go="${esc(a.id)}">${a.status === 'draft' ? 'Continue on the tablet' : 'Countersign'}</button>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border)">
@@ -67,7 +67,11 @@
       <button type="button" class="primary" data-cag-new="1">${open.length ? 'Start another' : 'Start on the tablet'}</button></div>
       <div class="field-note" style="margin:6px 0 4px">The tablet shows the real agreement pages. The office or the family types into the blanks, the family taps their initials and signs, and the office countersigns. The signed PDF is saved here. To have them sign from home, open it and use "Send to sign from home".</div>
       ${rows || '<div class="field-note" style="padding-top:6px">No agreement yet.</div>'}
+      <div id="cagPaper"></div><!-- 2026-11-21: a signed paper agreement uploaded as a PDF (agreement-paper.js) -->
       <div class="field-note" id="cagMsg" style="margin-top:6px"></div></div>`;
+    /* 2026-11-21 (Samantha: "upload a pdf of signed care agreement and pull the info from it") */
+    { const ps = box.querySelector('#cagPaper'), done = () => mount(boxId);
+      if (window.CAP) CAP.mount(ps, key, done); else { const sc = document.createElement('script'); sc.src = 'agreement-paper.js?v=1'; sc.onload = () => CAP.mount(ps, key, done); document.head.appendChild(sc); } }
     box.querySelector('[data-cag-new]').onclick = () => go(hasAx ? 'ax=' + encodeURIComponent(ax) : 'lead=' + encodeURIComponent(lid));
     box.querySelectorAll('[data-cag-go]').forEach(b => { b.onclick = () => go('id=' + encodeURIComponent(b.dataset.cagGo)); });
     box.querySelectorAll('[data-cag-rev]').forEach(b => {
