@@ -70,7 +70,8 @@ OWNER = r"""async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const W=()=>document.getElementById('myWorkWrap').innerText;
   ok('until you try it, the three lanes are still the board', !!document.getElementById('oplWait') && !document.getElementById('optToday'));
-  { const lr=document.querySelector('#oplWait .opl-row[data-id="nf_2"]'), t=lr?lr.innerText:'';
+  { const lr=document.querySelector('#oplNew .opl-row[data-id="nf_2"]'), t=lr?lr.innerText:'';
+    ok('lanes (her 11-23): Possible new families is its own lane on top, above open shifts and Waiting on us', !!document.getElementById('oplNew') && W().indexOf('Possible new families') > -1 && W().indexOf('Possible new families') < W().indexOf('Open shifts') && !document.querySelector('#oplWait [data-id="nf_2"]'), W().slice(0,400));
     ok('lanes (her 11-23 screenshot): a new family row says what they asked for and Make a lead, never "New family? Unknown caller"', /New caller/.test(t) && /overnight care for his wife/.test(t) && /Make a lead/.test(t) && !/Unknown caller/.test(t) && !/Call back/.test(t), t); }
   ok('owners see "Try the calmer board" on the lanes', /Try the calmer board/.test(W()), W().slice(0,300));
   OPB.todayTry(true); await sleep(200);
@@ -78,12 +79,12 @@ OWNER = r"""async()=>{
   ok('practice banner: only you see it, nothing closed, a way back', /Calmer board, practice/.test(W()) && /Nothing was closed or changed/.test(W()) && /Back to the three lanes/.test(W()), W().slice(0,300));
   ok('no tiles on the calmer board', !document.querySelector('.opl-tile'));
   const ids=()=>[...document.querySelectorAll('#optToday > .opt-row')].map(r=>r.getAttribute('data-id'));
-  ok('Today: 9 people need you, 6 rows shown: care first, then the longest wait, one row per person',
-    /Today\s+9 people need you/.test(document.querySelector('#optToday .opt-hd').innerText.replace(/\s+/g,' ')) && JSON.stringify(ids())===JSON.stringify(['cn_1','cf_health','fu_3','nf_1','nf_2','fu_1']), [document.querySelector('#optToday .opt-hd').innerText, ids()]);
+  ok('Today: 9 people need you, 6 rows shown: possible new families first (her word 11-23), then care, then the longest wait, one row per person',
+    /Today\s+9 people need you/.test(document.querySelector('#optToday .opt-hd').innerText.replace(/\s+/g,' ')) && JSON.stringify(ids())===JSON.stringify(['nf_1','nf_2','cn_1','cf_health','fu_3','fu_1']), [document.querySelector('#optToday .opt-hd').innerText, ids()]);
   ok('each Today row has exactly one button', [...document.querySelectorAll('#optToday > .opt-row')].every(r=>r.querySelectorAll('button').length===1));
-  const nf=document.querySelector('.opt-row[data-id="nf_1"]').innerText;
+  const nf=(document.querySelector('.opt-row[data-id="nf_1"]')||{innerText:''}).innerText;
   ok('a new family row says what the caller asked for, not "New family?"', /looking for a caregiver one to two days a week\./.test(nf) && !/New family\?/.test(nf) && /New family/.test(nf) && /Make a lead/.test(nf) && !/Call back/.test(nf), nf);
-  ok('an unknown new caller is "New caller"', /New caller/.test(document.querySelector('.opt-row[data-id="nf_2"]').innerText));
+  ok('an unknown new caller is "New caller"', /New caller/.test((document.querySelector('.opt-row[data-id="nf_2"]')||{innerText:''}).innerText));
   ok('a reply row shows the words that came in', /"Can the Thursday visit move to Friday\?"/.test(document.querySelector('.opt-row[data-id="fu_1"]').innerText));
   const hc=document.querySelector('.opt-row[data-id="cf_health"]');
   ok('a health item from a call is on Today with the care rows, even 9 days old, never folded', !!hc && /Health, from a call/.test(hc.innerText) && hc.classList.contains('care') && /mini stroke/.test(hc.innerText), hc&&hc.innerText);

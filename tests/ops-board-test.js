@@ -98,10 +98,10 @@ ck('one person: the contact or phone, else the name; never Unknown caller or a b
   const G = B.todayGroups([ r('cfp_a1', 'wait', 'call_followup', 'Ashley Lloyd', 30), r('fu_1', 'wait', 'reply_needed', 'Susan D.', 14, { contact_id:'s1' }), r('cfp_a2', 'wait', 'call_followup', 'Ashley Lloyd', 40),
     r('nf_1', 'wait', 'new_family_call', 'Unknown caller', 80), r('nf_2', 'wait', 'new_family_call', 'Unknown caller', 20), r('cn_1', 'care', 'care_note', 'April D.', 12), r('cn_2', 'care', 'care_note', 'Patsy W.', 3),
     r('fu_2', 'wait', 'reply_needed', 'Amy J.', 2, { contact_id:'a1' }) ], now);
-  ck('Today order: care first (newest first), then people waiting (longest wait first), then promises',
-    JSON.stringify(G.map(g => g.top.id)) === JSON.stringify(['cn_2', 'cn_1', 'nf_1', 'nf_2', 'fu_1', 'fu_2', 'cfp_a2']), G.map(g => g.top.id));
+  ck('Today order: possible new families on top (her word 11-23), then care (newest first), then people waiting (longest wait first), then promises',
+    JSON.stringify(G.map(g => g.top.id)) === JSON.stringify(['nf_1', 'nf_2', 'cn_2', 'cn_1', 'fu_1', 'fu_2', 'cfp_a2']), G.map(g => g.top.id));
   ck('one person is one row: Ashley\'s two promises are one group, oldest on top; two unknown callers stay two rows',
-    G.length === 7 && G[6].rows.length === 2 && G[6].top.id === 'cfp_a2' && G[2].rows.length === 1 && G[3].rows.length === 1, G.map(g => g.rows.length));
+    G.length === 7 && G[6].rows.length === 2 && G[6].top.id === 'cfp_a2' && G[0].rows.length === 1 && G[1].rows.length === 1, G.map(g => g.rows.length));
   const mix = B.todayGroups([ r('cfp_x', 'wait', 'call_followup', 'April D.', 5), r('cn_9', 'care', 'care_note', 'April D.', 9) ], now);
   ck('a care flag and a promise about the same person are one row, care on top', mix.length === 1 && mix[0].top.id === 'cn_9' && mix[0].tier === 0);
 }

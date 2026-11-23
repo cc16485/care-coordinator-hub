@@ -305,7 +305,7 @@
         if(W.OPB.lanes && typeof W.OPB.laneModel === 'function' && W.OPB.lanesView && W.OPB.lanesView()){
           const M = W.OPB.laneModel(); Object.keys(M.batches).forEach(k => { if(M.batches[k].some(r => r.id === id)) W.OPB.lanes.bopen = k; });
           if(M.old.some(r => r.id === id)) W.OPB.lanes.oldOpen = true;
-          if(!M.wait.concat(M.care, M.old).some(r => r.id === id) && !Object.keys(M.batches).some(k => M.batches[k].some(r => r.id === id))) W.OPB.lanes.who = 'all';
+          if(!M.wait.concat(M.newfam || [], M.care, M.old).some(r => r.id === id) && !Object.keys(M.batches).some(k => M.batches[k].some(r => r.id === id))) W.OPB.lanes.who = 'all';
         } else if(W.OPB.state.f){ W.OPB.state.tile = ''; W.OPB.state.f = { when:'', who:'', need:'', owner:'' }; }
       }
       redraw();
