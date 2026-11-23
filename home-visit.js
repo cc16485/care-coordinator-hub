@@ -898,10 +898,35 @@
     const ax = String(ST.a.axiscare_client_id || (ST.lead && ST.lead.axiscare_client_id) || '').trim(), lid = ST.lead ? String(ST.lead.id) : '';
     const href = ax ? 'agreement.html?ax=' + encodeURIComponent(ax) : lid ? 'agreement.html?lead=' + encodeURIComponent(lid) : '';
     return '<div>' + rows.map((r) => '<div class="hv-li"><span>' + E(r[0]) + '</span><span>' + E(r[1]) + '</span></div>').join('') + '</div>'
-      + (href ? '<a class="hv-b hv-big" href="' + href + '&cn=' + encodeURIComponent(ST.a.client_name || '') + '" target="_blank" rel="noopener">Open the Client Care Agreement</a>'
+      /* 2026-11-23 (Dixie's visit, Samantha: "dont need to make sign in to get to next stage and have family sign agreement"):
+         the agreement opens INSIDE the Hub, over the visit, not in a new window. A new window is a separate browser on the
+         iPad's home-screen app and inside GoHighLevel, so it could not see the coordinator's sign-in and asked again. In the
+         Hub it uses the same sign-in, and a recording that is going keeps going. */
+      + (href ? '<button type="button" class="hv-b hv-big" data-hva="openagree" data-href="' + E(href + '&cn=' + encodeURIComponent(ST.a.client_name || '') + '&inhub=1') + '">Open the Client Care Agreement</button>'
         + '<div class="hv-n">Set the level and rate on its first screen from what is above. They sign it here, before anything is set up in AxisCare.</div>'
         : '<div class="hv-note">This visit is not linked to a lead, so open the agreement from the client\'s Start of Care tab, or use the paper agreement.</div>');
   }
+  /* the agreement over the visit, same page and same sign-in (agreement.html asks to close it by message) */
+  function agreeSheet(href) {
+    if (!href || document.getElementById('hvAgreeSheet')) return;
+    try { saveNow(); } catch (e) {}
+    const sh = document.createElement('div'); sh.id = 'hvAgreeSheet';
+    sh.style.cssText = 'position:fixed;inset:0;z-index:4100;display:flex;flex-direction:column;background:#faf9f6';
+    sh.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#0D365F;color:#fff">'
+      + '<button type="button" data-hvagree="close" style="font:inherit;font-size:16px;font-weight:700;background:#fff;color:#0D365F;border:none;border-radius:10px;padding:10px 16px;min-height:44px">\u2190 Back to the visit</button>'
+      + '<span id="hvAgreeRec" style="font-size:14px;opacity:.9"></span></div>'
+      + '<iframe title="Client Care Agreement" src="' + E(href) + '" allow="microphone" style="flex:1;border:0;width:100%;background:#faf9f6"></iframe>';
+    document.body.appendChild(sh);
+    const recNote = () => { const n = document.getElementById('hvAgreeRec'); if (!n) return; n.textContent = recording() ? 'The visit is still recording.' : ''; };
+    recNote(); sh._t = setInterval(recNote, 2000);
+    sh.querySelector('[data-hvagree="close"]').onclick = agreeClose;
+  }
+  function agreeClose() {
+    const sh = document.getElementById('hvAgreeSheet'); if (!sh) return;
+    clearInterval(sh._t); sh.remove();
+    const el = document.getElementById('hvAgree'); if (el) el.innerHTML = agreeHtml();
+  }
+  window.addEventListener('message', (e) => { if (e.origin === location.origin && e.data && e.data.cag === 'close') agreeClose(); });
   function sec7() {
     const v = ST.a.visit;
     return '<h1>Agreement and sign-off</h1><div class="hv-sub">' + (v.outcome === 'ready' ? 'They are starting care: go straight to the Client Care Agreement, then sign the assessment.' : 'Sign the assessment. The agreement is ready whenever they are.') + '</div><div class="hv-g2">'
@@ -1376,6 +1401,7 @@
         const ps = (ST.a.visit.after.fills || []).filter((f) => !(ST.a.visit.after.marks || {})[f.path]).map((f) => f.path).filter(keepFill);
         redrawSecs(ps); saveSoon(); toast(ps.length + ' answer' + (ps.length === 1 ? '' : 's') + ' kept. They show in yellow on the form until someone changes them.'); return;
       }
+      if (act === 'openagree') { agreeSheet(a.getAttribute('data-href')); return; }
       if (act === 'close') { await close(); return; }
       if (act === 'finish') { await finish(); return; }
     });

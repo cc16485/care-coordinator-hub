@@ -68,6 +68,12 @@
     clearInterval(REC.tick); REC.tick = setInterval(ui, 500);
     recWake(true);
     ui();
+    /* 2026-11-23: a recorder that started but hears nothing must say so at once, not at the end of a 90-minute visit */
+    const first = REC.cur;
+    clearTimeout(REC.hearT); REC.hearT = setTimeout(() => {
+      if (state() !== 'recording' || REC.cur !== first || !first || first.got) return;
+      if (typeof recFail === 'function') recFail('The recording started, but no sound is reaching the Hub. Tap Stop, then Start again. If it happens again, use the backup.');
+    }, window.RECP_HEAR_MS || 6000);
   }
 
   function open() {

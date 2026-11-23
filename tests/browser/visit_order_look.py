@@ -117,11 +117,11 @@ async()=>{
   /* the agreement, straight from the lead */
   await go(10); const s10=sec(10);
   const cards=[...s10.querySelectorAll('.hv-card h2')].map(x=>x.textContent);
-  const link=s10.querySelector('#hvAgree a');
+  const link=s10.querySelector('#hvAgree [data-hva="openagree"]');
   ok('Agreement and sign-off: the agreement comes first, starting care says go straight to it', cards[0]==='Client Care Agreement' && /go straight to the Client Care Agreement/.test(s10.innerText), cards);
-  ok('not in AxisCare yet: the agreement opens from the lead', link && link.getAttribute('href')==='agreement.html?lead=lead_betty&cn=Betty%20Harlow%20(fake)' && /before anything is set up in AxisCare/.test(s10.innerText), link&&link.outerHTML);
+  ok('not in AxisCare yet: the agreement opens from the lead', link && link.getAttribute('data-href')==='agreement.html?lead=lead_betty&cn=Betty%20Harlow%20(fake)&inhub=1' && /before anything is set up in AxisCare/.test(s10.innerText), link&&link.outerHTML);
   a.axiscare_client_id='4321'; await go(9); await go(10);
-  ok('once in AxisCare it opens by the AxisCare number', /agreement\.html\?ax=4321&/.test(q('#hvAgree a').getAttribute('href')));
+  ok('once in AxisCare it opens by the AxisCare number', /agreement\.html\?ax=4321&/.test(q('#hvAgree [data-hva="openagree"]').getAttribute('data-href')));
   a.axiscare_client_id='';
   const txt=document.getElementById('hvRoot').innerText;
   ok('no "AI" and no em dashes on the screens', !/\bAI\b/.test(txt) && !/—/.test(txt), (txt.match(/.{30}(\bAI\b|—).{30}/)||[])[0]);

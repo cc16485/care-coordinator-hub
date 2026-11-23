@@ -98,16 +98,16 @@ async()=>{
   q('[data-hvs="5"]').click(); tap('visit.equipment','Hoyer lift'); ok('a Hoyer lift = Advanced', HV._suggest()==='advanced');
   /* sign-off and the agreement card */
   q('[data-hvs="10"]').click(); await sleep(60);
-  const ag=q('#hvAgree').innerText, lk0=q('#hvAgree a');
-  ok('agreement card carries level, rate, schedule and contacts; not in AxisCare yet = the agreement opens from the lead (2026-10-30)', /Personal Care, \$32\.50 an hour/.test(ag) && /Mon 9:00am to 1:00pm, Wed 9:00am to 1:00pm/.test(ag) && /Karen Price \(fake\), Mike Harlow \(fake\)/.test(ag) && lk0 && /agreement\.html\?lead=lead_betty&cn=Betty%20Harlow%20\(fake\)/.test(lk0.getAttribute('href')) && /Open the Client Care Agreement/.test(lk0.innerText) && !/next update/.test(ag), [ag, lk0&&lk0.outerHTML]);
+  const ag=q('#hvAgree').innerText, lk0=q('#hvAgree [data-hva="openagree"]');
+  ok('agreement card carries level, rate, schedule and contacts; not in AxisCare yet = the agreement opens from the lead (2026-10-30)', /Personal Care, \$32\.50 an hour/.test(ag) && /Mon 9:00am to 1:00pm, Wed 9:00am to 1:00pm/.test(ag) && /Karen Price \(fake\), Mike Harlow \(fake\)/.test(ag) && lk0 && /agreement\.html\?lead=lead_betty&cn=Betty%20Harlow%20\(fake\)/.test(lk0.getAttribute('data-href')) && /Open the Client Care Agreement/.test(lk0.innerText) && !/next update/.test(ag), [ag, lk0&&lk0.outerHTML]);
   const cv=q('canvas[data-sig="client"]'), r=cv.getBoundingClientRect();
   const pe=(t,x,y)=>cv.dispatchEvent(new PointerEvent(t,{ bubbles:true, pointerId:1, clientX:r.left+x, clientY:r.top+y }));
   try{ cv.setPointerCapture=()=>{}; }catch(e){}
   pe('pointerdown',20,60); pe('pointermove',80,40); pe('pointermove',160,80); pe('pointerup',160,80);
   ok('a finger signature saves as a picture with today\'s date', /^data:image\/png/.test(a.visit.sign.client.png) && /^\d{4}-\d\d-\d\d$/.test(a.visit.sign.client.date));
   a.axiscare_client_id='4321'; q('[data-hvs="8"]').click(); q('[data-hvs="10"]').click(); await sleep(30);
-  const link=q('#hvAgree a');
-  ok('once in AxisCare: the agreement opens on the same iPad', link && /agreement\.html\?ax=4321&cn=Betty%20Harlow%20\(fake\)/.test(link.getAttribute('href')), link&&link.outerHTML);
+  const link=q('#hvAgree [data-hva="openagree"]');
+  ok('once in AxisCare: the agreement opens on the same iPad', link && /agreement\.html\?ax=4321&cn=Betty%20Harlow%20\(fake\)/.test(link.getAttribute('data-href')), link&&link.outerHTML);
   a.axiscare_client_id='';
   /* looks */
   const txt=document.getElementById('hvRoot').innerText;
