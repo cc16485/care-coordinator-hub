@@ -7651,8 +7651,8 @@ The HomeTogether team</pre>
 <script src="katlin-page.js?v=11"></script>
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=11"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=3"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="profile-cards.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
-<script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=16"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=11"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=3"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="profile-cards.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=2"></script>
+<script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=17"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -25483,6 +25483,10 @@ function recMount(hostId, kind, subjectId, label){
     + '<div id="recLost" style="display:none;margin-top:9px;background:#FDECEA;border:1px solid #F0B8B0;border-radius:9px;padding:9px 11px;font-size:13px;"></div>'
     + '<div id="recUp" class="field-note" style="display:none;margin-top:6px;"></div>'
     + '<div id="recErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
+    + (kind === 'assessment' ? '<div id="recAddWrap" style="margin-top:8px;font-size:13px;">'
+      + '<label class="fb" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;' + big + '">Add a recording from this device'
+      + '<input type="file" id="recAddFile" accept="audio/*,.m4a,.mp3,.wav,.aac,.caf" onchange="recAddFile(this)" style="display:none"></label>'
+      + ' <span class="field-note">Recorded in Voice Memos or another app? Add the file here and it is written out the same way.</span></div>' : '')
     + '<div id="recList" style="margin-top:10px;"></div>'
     + '</div>';
   recLoadList();
@@ -25523,6 +25527,55 @@ async function recRecoverDrop(id){
   await recDbDrop(id); recRecoverShow();
 }
 
+/* 2026-11-23 (Dixie's home visit would not record, and no home visit recording had ever reached the office): when the
+   microphone will not start, say why in plain words, what to do on THIS device, and offer the backup right there: record
+   with the iPad's own Voice Memos app and add the file here (recAddFile). Never a silent or vague failure. */
+const recEmbedded = () => { try{ return window.self !== window.top; }catch(e){ return true; } };
+const recIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const recAppMode = () => { try{ return !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)); }catch(e){ return false; } };
+function recWhy(e){
+  const n = (e && e.name) || '';
+  if(n === 'NoRecorder') return recEmbedded()
+    ? 'This screen is inside another app (GoHighLevel), and it does not let the Hub use the microphone. Open cc.mo-care.com on its own in Safari or Chrome to record, or use the backup below.'
+    : 'This browser cannot record. Safari or Chrome can. You can also use the backup below.';
+  if(n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError'){
+    if(recEmbedded()) return 'This screen is inside another app (GoHighLevel), and it does not let the Hub use the microphone. Open cc.mo-care.com on its own in Safari or Chrome to record, or use the backup below.';
+    if(recIOS()) return 'The microphone is turned off for the Hub on this ' + (/iPhone/.test(navigator.userAgent) ? 'phone' : 'iPad') + '. '
+      + (recAppMode() ? 'Close the CC Office app all the way (swipe it up), open it again, and tap Allow when it asks for the microphone.'
+        : 'Tap aA in the address bar, then Website Settings, set Microphone to Allow, and press Start again.')
+      + ' If it still will not ask: Settings, then Apps, then Safari, then Microphone, set to Ask or Allow.';
+    return 'The microphone is blocked. Allow it for cc.mo-care.com (the lock or camera icon in the address bar), then press Start again.';
+  }
+  if(n === 'NotFoundError' || n === 'OverconstrainedError') return 'No microphone was found on this device. Use the backup below, or another device.';
+  if(n === 'NotReadableError' || n === 'AbortError') return 'Another app is using the microphone (a phone call, FaceTime, Voice Memos, a video call). Close it, then press Start again.';
+  return 'The microphone would not start (' + (n || (e && e.message) || 'unknown') + '). Press Start again, or use the backup below.';
+}
+function recFail(text){
+  const err = document.getElementById('recErr'); if(!err) return;
+  err.innerHTML = '<b>Not recording.</b> ' + escapeHtmlComms(text)
+    + (REC.kind === 'assessment' ? '<div style="margin-top:6px;color:var(--ink,#16283a)"><b>Backup:</b> open the Voice Memos app and record there. Afterwards, tap <b>Add a recording from this device</b> below and pick the file.</div>' : '');
+  err.style.display = 'block';
+  const add = document.getElementById('recAddWrap'); if(add) add.style.display = '';
+}
+/* the backup: a recording made in another app (Voice Memos, a phone) goes up the same private way and is written out */
+async function recAddFile(input){
+  const f = input && input.files && input.files[0]; if(!f) return;
+  const note = document.getElementById('recUp'), err = document.getElementById('recErr');
+  if(!/^audio\/|^video\/(mp4|quicktime|webm)/.test(f.type || '') && !/\.(m4a|mp3|wav|aac|mp4|webm|ogg|caf|mov)$/i.test(f.name || '')){
+    if(err){ err.textContent = 'That file is not a recording. Pick the audio file (Voice Memos saves .m4a).'; err.style.display = 'block'; } input.value = ''; return;
+  }
+  let seconds = 0;
+  try{ seconds = await new Promise(ok => { const a = new Audio(); a.preload = 'metadata'; const u = URL.createObjectURL(f);
+    a.onloadedmetadata = () => { URL.revokeObjectURL(u); ok(isFinite(a.duration) ? Math.round(a.duration) : 0); }; a.onerror = () => { URL.revokeObjectURL(u); ok(0); }; a.src = u; setTimeout(() => ok(0), 8000); }); }catch(e){}
+  if(note){ note.textContent = 'Sending the recording to the office…'; note.style.display = ''; }
+  const ext = ((f.name || '').match(/\.([a-z0-9]{2,4})$/i) || [0, (f.type || '').indexOf('mp4') > -1 ? 'm4a' : 'webm'])[1].toLowerCase();
+  const by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || null;
+  const ok = await recUpload(f, Math.max(1, seconds), { kind: REC.kind, subject: REC.subject, label: REC.label, by, ext, type: f.type || ('audio/' + (ext === 'm4a' ? 'mp4' : ext)) });
+  input.value = '';
+  if(note) note.textContent = ok ? 'Added. It is being written out; it shows in the list below.' : '';
+  if(ok && err) err.style.display = 'none';
+}
+
 function recButtons(){
   const ok = (document.getElementById('recConsent')||{}).checked;
   const go = document.getElementById('recGo'); if(go) go.disabled = !ok;
@@ -25530,15 +25583,13 @@ function recButtons(){
 
 async function recStart(){
   const err = document.getElementById('recErr'); err.style.display='none';
-  if(!navigator.mediaDevices || !window.MediaRecorder){
-    err.textContent = 'This browser cannot record. Chrome or Safari on the laptop both can.';
-    err.style.display='block'; return;
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder){
+    recFail(recWhy({ name:'NoRecorder' })); return;
   }
   try{
     REC.stream = await navigator.mediaDevices.getUserMedia({ audio:true });
   }catch(e){
-    err.textContent = 'The microphone is blocked. Allow it for cc.mo-care.com in the address bar, then press start again.';
-    err.style.display='block'; return;
+    recFail(recWhy(e)); return;
   }
   const mime = recMime();
   /* 2026-10-29: an in-home assessment runs 90 minutes, so it records in 10-minute parts that upload as it goes (rec-parts.js) */
@@ -25580,16 +25631,16 @@ function recStop(){
 /* The upload, shared by a normal stop and a recovered recording. True when it is safely in. */
 async function recUpload(blob, seconds, meta){
   const err = document.getElementById('recErr');
-  const ext = (blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm';
+  const ext = meta.ext || ((blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm');
   const path = meta.group   /* a part of a long visit: its own folder, numbered in order */
     ? meta.kind + '/' + meta.subject + '/' + meta.group + '/' + String(meta.part).padStart(3,'0') + '.' + ext
     : meta.kind + '/' + meta.subject + '/' + Date.now() + '.' + ext;
   try{
-    const up = await sb.storage.from('recordings').upload(path, blob, { contentType: blob.type });
+    const up = await sb.storage.from('recordings').upload(path, blob, { contentType: meta.type || blob.type });
     if(up.error) throw up.error;
     const ins = await sb.from('recordings').insert({
       kind: meta.kind, subject_id: meta.subject, subject_label: meta.label,
-      storage_path: path, mime: blob.type, seconds: seconds,
+      storage_path: path, mime: meta.type || blob.type, seconds: seconds,
       consent_given: true,
       ...(meta.group ? { session_id: meta.group, part: meta.part, offset_seconds: meta.offset || 0 } : {}),
       consent_by: meta.by || (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,

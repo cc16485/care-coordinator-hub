@@ -102,6 +102,7 @@
 <main>
   <div id="gate" class="card hide">
     <h1>Sign in</h1><p class="lead">Use your Hub sign-in. The tablet stays signed in as you while the family fills in the agreement.</p>
+    <div class="note" id="gateWhy">Already signed in to the Hub? This page opened in a separate window that can't see that sign-in. Go back to the Hub and open the agreement from the client's Start of Care tab or the home visit; it opens there without signing in again.</div>
     <label for="em">Email</label><input type="email" id="em" autocomplete="username">
     <label for="pw">Password</label><input type="password" id="pw" autocomplete="current-password" style="width:100%;font:inherit;font-size:18px;padding:12px 14px;border:1.5px solid #cfd6dd;border-radius:12px">
     <p><button class="btn" id="signin" type="button">Sign in</button></p><div id="gateErr"></div>
@@ -182,6 +183,12 @@ async function call(body){
   return d;
 }
 
+/* 2026-11-23 (Dixie's visit): opened from the home visit, this page runs INSIDE the Hub (home-visit.js agreeSheet), so it
+   shares the Hub's sign-in. There, "Back to the Hub" closes it and returns to the visit instead of loading the Hub again. */
+const INHUB=Q.get('inhub')==='1'&&(()=>{ try{ return window.parent!==window&&window.parent.location.origin===location.origin; }catch(e){ return false; } })();
+if(INHUB){ $('backLink').textContent='\u2190 Back to the visit'; $('gateWhy').classList.add('hide'); }
+if(INHUB) document.addEventListener('click',e=>{ const a=e.target.closest&&e.target.closest('a[href="index.html"]'); if(!a) return; e.preventDefault(); window.parent.postMessage({cag:'close'},location.origin); });
+
 /* ---------- sign-in ---------- */
 if(REMOTE) remoteStart();
 else sb.auth.getSession().then(r=>{ if(r.data&&r.data.session) boot(r.data.session); else $('gate').classList.remove('hide'); });
@@ -227,7 +234,8 @@ async function remoteOpen(d){
 }
 $('signin').onclick=async()=>{
   $('gateErr').innerHTML=''; const r=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
-  if(r.error){ $('gateErr').innerHTML='<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  if(r.error){ const m=/invalid login/i.test(r.error.message||'')?'That email and password did not match. Check the email, or use the same password as the Hub. Forgot it? Use "Forgot password" on the Hub sign-in screen.':r.error.message;
+    $('gateErr').innerHTML='<div class="err">'+esc(m)+'</div>'; return; }
   $('gate').classList.add('hide'); boot(r.data.session);
 };
 async function boot(session){
