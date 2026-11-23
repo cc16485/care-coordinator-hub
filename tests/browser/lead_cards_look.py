@@ -53,7 +53,7 @@ async()=>{
 
   /* ── off: the list as before ── */
   ok('off · the list as before (Need you now tile, no cards)', /need you now/.test(txt('lbNumbers'))&&!document.querySelector('.lc-card'), txt('lbNumbers').slice(0,300));
-  ok('off · an owner sees "Preview the new Leads list"', /Preview the new Leads list/.test(txt('lbNumbers')));
+  ok('off · the simpler list replaced it: an owner sees "Preview the simpler Leads list" (2026-11-23)', /Preview the simpler Leads list/.test(txt('lbNumbers'))&&!/Preview the new Leads list/.test(txt('lbNumbers')));
 
   /* ── the owner's preview ── */
   document.querySelector('.lb-preview-ask button').click(); await sleep(250);

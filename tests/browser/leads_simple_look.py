@@ -55,7 +55,7 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   switchTab('leadsstarts'); await sleep(250);
   ok('off · no cleaner list', !document.querySelector('.lts'));
-  ok('off · an owner sees "Preview the cleaner Leads list"', /Preview the cleaner Leads list/.test(txt('lbNumbers')), txt('lbNumbers'));
+  ok('off · the simpler list replaced it: an owner sees "Preview the simpler Leads list", not the cleaner one (2026-11-23)', /Preview the simpler Leads list/.test(txt('lbNumbers'))&&!/Preview the cleaner Leads list/.test(txt('lbNumbers')), txt('lbNumbers'));
   lcPreview(true); await sleep(250);
   const oldNames=()=>[...document.querySelectorAll('#lbBoard .lt-row:not(.lt-headrow) .lt-namebtn')].map(b=>b.textContent);
   const before=oldNames().join('|');

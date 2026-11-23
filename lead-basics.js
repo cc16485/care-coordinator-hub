@@ -195,6 +195,8 @@
     const calls = (d && d.calls && d.calls.length ? d.calls : [d && d.call]).filter(Boolean), list = Array.isArray(l.from_calls) ? l.from_calls.slice() : [];
     calls.forEach(c => { if(c.message_id && !list.some(x => x && x.message_id === c.message_id)) list.push({ message_id:c.message_id, at:c.at || '', by:'basics', linked_at:new Date().toISOString() }); });
     l.from_calls = list;
+    /* 2026-11-23: a website lead found in GoHighLevel by its phone keeps the link, so the next read goes straight there */
+    if(d && d.contact && d.contact.id && !l.ghl_contact_id) l.ghl_contact_id = String(d.contact.id);
     l.basics_filled_at = new Date().toISOString();
     return Object.keys(lineHit).length;
   }
@@ -208,7 +210,7 @@
     try{
       const d = await CallLead.readLead(id);
       const fresh = lead(id) || l;
-      if(!d || !d.call){ fresh.basics_checked_at = new Date().toISOString(); if(force && typeof ccToast === 'function') ccToast((d && d.note) || 'No answered call with a transcript was found for this family.'); await persist('leads', fresh); return; }
+      if(!d || !d.call){ fresh.basics_checked_at = new Date().toISOString(); if(d && d.contact && d.contact.id && !fresh.ghl_contact_id) fresh.ghl_contact_id = String(d.contact.id); if(force && typeof ccToast === 'function') ccToast((d && d.note) || 'No answered call with a transcript was found for this family.'); await persist('leads', fresh); return; }
       const n = apply(fresh, d);
       await persist('leads', fresh);
       if(typeof ccToast === 'function') ccToast(n ? n + ' line' + (n === 1 ? '' : 's') + ' filled from the call (yellow until you check them).' : 'The call had nothing new for the empty lines.');

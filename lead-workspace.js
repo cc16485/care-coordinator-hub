@@ -41,6 +41,24 @@
     const has = ['cpcLearned', 'cp_open_now'].some(id => { const e = document.getElementById(id); return e && e.innerText.trim(); });
     cmd.style.display = (active() && !has) ? 'none' : '';
   }
+  /* 2026-11-23 (her approved mockup 1nPX3KE4umygkdu3VEtoHW): the simpler lead page, while the simpler Leads list shows
+     (leads-groups.js): 4 tabs until the yes, one Next box in the list's words, What we know once (the Basics card). */
+  function simpler(){ return !!(window.LeadGroups && LeadGroups.showing(DATA.ops_settings || {}, typeof ccIsOwner === 'function' && ccIsOwner())); }
+  const LEAD_TABS = { summary:'', history:'Calls & texts', care:'Care details', payer:'' };
+  function leadMode(on){
+    const tabs = document.getElementById('cpTabs'), top = document.getElementById('cpTop');
+    if(top) top.classList.toggle('lg-lead', on);
+    if(!tabs) return;
+    tabs.classList.toggle('lg-lead', on);
+    tabs.querySelectorAll('.cp-tab').forEach(b => {
+      const k = b.dataset.cp, word = LEAD_TABS[k];
+      if(on && word){ if(!b.dataset.word) b.dataset.word = b.textContent; b.textContent = word; }
+      else if(b.dataset.word){ b.textContent = b.dataset.word; delete b.dataset.word; }
+    });
+    if(!document.getElementById('lgLeadCss')){ const st = document.createElement('style'); st.id = 'lgLeadCss';
+      st.textContent = '#cpTabs.lg-lead .cp-tab:not([data-cp="summary"]):not([data-cp="history"]):not([data-cp="care"]):not([data-cp="payer"]){display:none!important;}#cpTop.lg-lead .pt-next{display:none!important;}';
+      document.head.appendChild(st); }
+  }
   function hide(ids, on){ ids.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = on ? 'none' : ''; }); }
 
   /* ── drawing ── */
@@ -107,6 +125,71 @@
     try{ await persist('leads', l); }catch(e){ if(btn) btn.disabled = false; if(typeof ccToast === 'function') ccToast('Could not save: ' + (e && e.message || e)); else alert('Could not save'); return; }
     const card = document.getElementById('lwHints'); if(card){ const tmp = document.createElement('div'); tmp.innerHTML = hintsHtml(l); card.replaceWith(tmp.firstChild || document.createTextNode('')); }
   };
+  /* 2026-11-23 (her ask: "need easy way to put in notes about lead and attach other contacts as family or friend and who
+     referred"): one card under the Next box. A note goes into the same log the timeline reads; a person goes onto the
+     family's People involved (the Journey's own record_person door, nothing texted); who referred is the lead's referrer. */
+  const QK = { open:'' };
+  function quickHtml(l, ctx){
+    const notes = (Array.isArray(l.comm_log) ? l.comm_log : []).filter(c => c && c.kind === 'note' && c.body).slice(-3).reverse();
+    const fmt = iso => { try{ const c = R().chicago(iso); return R().dayWords(c.ymd, ctx.today).replace(/^\w/, ch => ch.toUpperCase()); }catch(e){ return ''; } };
+    const who = e => String(e || '').split('@')[0].replace(/^\w/, c => c.toUpperCase());
+    const ref = l.referrer || {}, org = l.referral_org_id ? (DATA.referral_orgs || []).find(o => o.id === l.referral_org_id) : null;
+    const refWords = [ref.name, ref.phone, ref.email].filter(Boolean).join(' · ') + (org ? (ref.name ? ' from ' : '') + org.name : '');
+    const rel = ['Family', 'Friend', 'Neighbor', 'Doctor or nurse', 'Social worker', 'Other'];
+    return '<div class="card lw-card lwq" id="lwQuick">'
+      + '<div class="lwq-sec"><b>Notes</b><div class="lwq-note"><textarea id="lwqNote" rows="2" placeholder="Type a note about this family. It saves to their history with your name."></textarea><button class="lb-btn lb-btn-primary" onclick="lwqNote(this)">Save note</button></div>'
+      + (notes.length ? '<div class="lwq-list">' + notes.map(n => '<div><span class="field-note">' + esc(fmt(n.at)) + ' · ' + esc(who(n.by)) + '</span> ' + esc(n.body) + '</div>').join('') + '</div>' : '') + '</div>'
+      + '<div class="lwq-sec"><b>People</b><div id="lwqPeople" class="lwq-list"><span class="field-note">Loading…</span></div>'
+      + (QK.open === 'person' ? '<div class="lwq-form"><input id="lwqPName" placeholder="Name"><input id="lwqPPhone" placeholder="Phone (optional)" inputmode="tel"><select id="lwqPRel">' + rel.map(r => '<option>' + r + '</option>').join('') + '</select><input id="lwqPHow" placeholder="How they\'re related, e.g. daughter (optional)"><button class="lb-btn lb-btn-primary" onclick="lwqPerson(this)">Add</button><button class="linklike" onclick="lwqOpen(\'\')">Cancel</button></div>'
+        : '<button class="linklike" onclick="lwqOpen(\'person\')">+ Add a family member or friend</button>') + '</div>'
+      + '<div class="lwq-sec"><b>How they came in</b><div>' + esc(window.LeadGroups ? LeadGroups.cameWords(l, ctx.today) || 'Not recorded' : (l.source || 'Not recorded')) + '</div>'
+      + (window.HeardAbout ? '<div class="lwq-heard"><span class="field-note"' + (l.heard_about ? '' : ' style="color:#A35A00;font-weight:700;"') + '>' + (l.heard_about ? 'How they heard about us:' : 'Ask them: how did you hear about us?') + '</span> ' + HeardAbout.OPTIONS.map(o => '<button class="lb-btn' + (l.heard_about === o[0] ? ' lb-btn-primary' : '') + '" onclick="lgSaveHeard(\'' + esc(l.id) + '\', \'' + o[0] + '\')">' + esc(o[1]) + '</button>').join('') + '</div>' : '') + '</div>'
+      + '<div class="lwq-sec"><b>Who referred them</b>'
+      + (QK.open === 'ref' ? '<div class="lwq-form"><input id="lwqRName" placeholder="Name" value="' + esc(ref.name || '') + '"><input id="lwqRPhone" placeholder="Phone (optional)" inputmode="tel" value="' + esc(ref.phone || '') + '"><input id="lwqREmail" placeholder="Email (optional)" value="' + esc(ref.email || '') + '"><button class="lb-btn lb-btn-primary" onclick="lwqRef(this)">Save</button><button class="linklike" onclick="lwqOpen(\'\')">Cancel</button></div>'
+        : '<div>' + (refWords ? esc(refWords) + ' <button class="linklike" onclick="lwqOpen(\'ref\')">change</button>' : '<span class="field-note">' + esc(l.source ? 'Came in from ' + String(l.source).toLowerCase() + '.' : 'Not recorded.') + '</span> <button class="linklike" onclick="lwqOpen(\'ref\')">+ Add who referred them</button>') + '</div>')
+      + '</div>'
+      + '<div class="lwq-sec" style="border-top:1px solid var(--border);padding-top:8px;"><span class="field-note">Not a real family (a sales call, a wrong number)? <button class="linklike" onclick="lpMarkSpam(\'' + esc(l.id) + '\', this)">Mark as spam</button>. It leaves every list and count, and is never contacted.</span></div>'
+      + '</div>';
+  }
+  async function quickPeople(l){
+    const box = document.getElementById('lwqPeople'); if(!box) return;
+    const caller = ((l.first_name || '') + ' ' + (l.last_name || '')).trim();
+    let b = null; try{ b = typeof lpiLoadBegan === 'function' ? await lpiLoadBegan(l) : null; }catch(e){}
+    const el = document.getElementById('lwqPeople'); if(!el) return;
+    const ppl = ((b && b.people) || []).filter(p => p && p.name);
+    const rows = (caller ? ['<div><b>' + esc(caller) + '</b>' + (l.relationship ? ' · ' + esc(l.relationship) : '') + (l.phone ? ' · ' + esc(l.phone) : '') + ' <span class="field-note">called us</span></div>'] : [])
+      .concat(ppl.filter(p => String(p.name).trim().toLowerCase() !== caller.toLowerCase()).map(p => '<div><b>' + esc(p.name) + '</b>' + (p.relationship ? ' · ' + esc(p.relationship) : '') + (p.phone ? ' · ' + esc(p.phone) : '') + '</div>'));
+    el.innerHTML = rows.length ? rows.join('') : '<span class="field-note">Nobody yet.</span>';
+  }
+  function lwqOpen(k){ QK.open = k || ''; render(); setTimeout(() => { const f = document.querySelector('#lwQuick .lwq-form input'); if(f) f.focus(); }, 0); }
+  async function lwqNote(b){
+    const l = lead(), inp = document.getElementById('lwqNote'); if(!l || !inp) return;
+    const body = inp.value.trim(); if(!body){ inp.focus(); return; }
+    if(b) b.disabled = true;
+    const a = (typeof ccActor === 'function') ? ccActor() : { email:'' };
+    l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : []; l.comm_log.push({ body, at:new Date().toISOString(), by:a.email, kind:'note' });
+    await persist('leads', l); if(typeof ccToast === 'function') ccToast('Note saved.'); render();
+  }
+  async function lwqPerson(b){
+    const l = lead(); if(!l) return;
+    const v = id => String((document.getElementById(id) || {}).value || '').trim();
+    const name = v('lwqPName'); if(!name){ const f = document.getElementById('lwqPName'); if(f) f.focus(); return; }
+    const relationship = [v('lwqPRel'), v('lwqPHow')].filter(Boolean).join(': ');
+    if(b) b.disabled = true;
+    let began = null; try{ if(typeof LPI !== 'undefined' && LPI.began) delete LPI.began[l.id]; began = await lpiLoadBegan(l); }catch(e){}
+    if(!began || !began.ep){ if(b) b.disabled = false; alert('This family\'s record is not open yet, so people can\'t be added here. Try again in a minute.'); return; }
+    let res; try{ res = await lpfCall({ action:'record_person', episode_id:began.ep, is_caller:false, change_kind:'first', person_key:null, supersedes_row_id:null, name, relationship:relationship || null,
+      organization:null, roles:[], phone:v('lwqPPhone') || null, email:null, reach_way:null, reach_time:null, permission:'not_asked', permission_asked_by:null, permission_asked_at:null, reason:null }); }catch(e){ res = { error:String((e && e.message) || e) }; }
+    if(!res || res.outcome !== 'recorded'){ if(b) b.disabled = false; alert('Not added: ' + ((res && (res.message || res.reason || res.error)) || 'no answer')); return; }
+    try{ if(typeof LPI !== 'undefined' && LPI.began) delete LPI.began[l.id]; }catch(e){}
+    QK.open = ''; if(typeof ccToast === 'function') ccToast(name + ' added. Nothing was sent to them.'); render();
+  }
+  async function lwqRef(b){
+    const l = lead(); if(!l) return;
+    const v = id => String((document.getElementById(id) || {}).value || '').trim();
+    l.referrer = Object.assign({}, l.referrer || {}, { name:v('lwqRName'), phone:v('lwqRPhone'), email:v('lwqREmail') });
+    if(b) b.disabled = true; await persist('leads', l); QK.open = ''; if(typeof ccToast === 'function') ccToast('Saved who referred them.'); render();
+  }
   function timelineHtml(l, ctx){
     const items = R().timeline(l, ctx), fmt = iso => { const c = R().chicago(iso); return (c.ymd === ctx.today ? 'Today' : R().dayWords(c.ymd, ctx.today).replace(/^\w/, ch => ch.toUpperCase())) + ' ' + R().clockWords(iso); };
     const K = { family:'lw-tl-family', talked:'lw-tl-talked', try:'', sent:'', auto:'lw-tl-auto', clock:'lw-tl-auto', inquiry:'', note:'lw-tl-note', promise:'', stage:'lw-tl-stage' };
@@ -114,7 +197,7 @@
       + '<div class="lw-tl">' + (items.length ? items.map(it => '<div class="lw-tl-row ' + (K[it.kind] || '') + '"><div class="lw-tl-when">' + esc(fmt(it.at)) + '</div><div><b>' + esc(it.text) + '</b>' + (it.sub ? ' <span class="field-note">' + (it.kind === 'family' || it.kind === 'sent' ? '"' + esc(it.sub) + '"' : esc(it.sub)) + '</span>' : '') + '</div></div>').join('') : '<div class="field-note">Nothing yet.</div>') + '</div>'
       + '<div class="lw-note"><input id="lwNoteIn" placeholder="Add a note (a call goes through Log a call, so it counts)" onkeydown="if(event.key===\'Enter\')lwNote()"><button class="lb-btn" onclick="lwNote()">Add</button></div></div>';
   }
-  function railHtml(l, ctx, r){
+  function railHtml(l, ctx, r, simple){
     const RR = R(), nx = RR.leadNext(l, ctx.now), asm = (ctx.assessments || []).filter(a => a && a.status === 'Scheduled' && a.visit_date && a.visit_date >= ctx.today).sort((a, b) => a.visit_date.localeCompare(b.visit_date))[0];
     const up = [];
     if(nx) up.push('<div><b>' + esc(RR.dayWords(nx.day, ctx.today).replace(/^\w/, c => c.toUpperCase())) + (nx.kind === 'promise' || nx.timed ? ' ' + esc(RR.clockWords(nx.at)) : '') + '</b> · ' + esc(RR.nextWords(nx, ctx.now)) + '</div>');
@@ -127,7 +210,7 @@
     const tel = (p, e) => p ? '<a href="#" data-oc-phone="' + esc(p) + '"' + (e ? ' data-oc-email="' + esc(e) + '"' : '') + ' title="Call from the office line">' + esc(p) + '</a>' : '';
     const look = RR.staffingLook(l, people());
     return '<div class="lw-rail">'
-      + '<div class="card lw-card"><b class="lw-rail-t">Coming up</b>' + (up.length ? '<div class="lw-up">' + up.join('') + '</div>' : '<div class="field-note" style="margin-top:6px;">Nothing scheduled. The buttons on the next card set it.</div>') + '<div class="field-note" style="margin-top:8px;">Your tasks, never automatic messages. They move when you log what happened.</div></div>'
+      + (simple ? '' : '<div class="card lw-card"><b class="lw-rail-t">Coming up</b>' + (up.length ? '<div class="lw-up">' + up.join('') + '</div>' : '<div class="field-note" style="margin-top:6px;">Nothing scheduled. The buttons on the next card set it.</div>') + '<div class="field-note" style="margin-top:8px;">Your tasks, never automatic messages. They move when you log what happened.</div></div>')
       + '<div class="card lw-card"><b class="lw-rail-t">Contacts</b><div class="lw-contacts">'
       + (caller ? '<div><b>' + esc(caller) + '</b>' + (l.relationship ? ' · ' + esc(l.relationship) : '') + (caller !== client ? ', decides' : '') + (l.phone ? ' · ' + tel(l.phone, l.email) : '') + (l.email ? '<div class="field-note">' + esc(l.email) + '</div>' : '') + (l.do_not_contact ? '<div style="color:var(--red);font-weight:700;font-size:12px;">asked us not to contact them</div>' : '') + '</div>' : '<div class="field-note">No caller name recorded.</div>')
       + (client && client !== caller ? '<div><b>' + esc(client) + '</b> · the client' + (l.client_phone ? ' · ' + tel(l.client_phone) : '') + '</div>' : '')
@@ -245,15 +328,19 @@
     const host = document.getElementById('lwHost'); if(!host) return;
     const on = active();
     hide(['lp_head_card', 'lp_ai_card', 'cpcPath', 'cpcGrid', 'cpcCare', 'cpcNeeded'], on);
+    const simple = on && simpler(); leadMode(simple);
     if(!on){ host.innerHTML = ''; host.style.display = 'none'; tab(); trim(); return; }
     const l = lead(), RR = R(), ctx = ctxFor(l), r = RR.boardRow(l, ctx), st = RR.steps(l, ctx), sc = RR.scriptFor(l, r, ctx);
     const tone = TONE[r.when.tone] || TONE.navy, lost = String(l.status || '') === 'Lost';
+    const gt = simple && LeadGroups.temp ? LeadGroups.temp({ l, r, ctx }, ctx.now) : null;
+    const gp = simple ? LeadGroups.nextFor(l, r, ctx.now, (DATA.leads || []).filter(x => x && !x.archived && !(x.spam && x.spam.at) && ['Lost', 'Converted'].indexOf(String(x.status || '')) < 0)) : null;
     const callerFirst = first(l.first_name) || 'them';
     const owners = [...new Set((typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).map(p => first(p.full_name)).concat((DATA.leads || []).map(x => first(x.assigned_coordinator))).concat([first(l.assigned_coordinator)]).filter(Boolean))].sort();
     const yesOk = !!(l.first_human_contact_at && !l.said_yes_at && !lost);
     const reply = r.reason === 'replied' ? (RR.timeline(l, ctx).find(x => x.kind === 'family') || null) : null;
     /* 2026-10-15: the Basics card first (lead-basics.js) */
-    let h = (window.LeadBasics ? LeadBasics.html(l) : '') + '<div class="card lw-card lw-top">'
+    const basics = window.LeadBasics ? LeadBasics.html(l) : '';
+    let h = (simple ? '' : basics) + '<div class="card lw-card lw-top">'
       + '<div class="lw-top-row"><div style="flex:1 1 380px;min-width:0;">'
       + '<div class="lw-story"><b>' + esc(r.why || ('Inquiry' + (r.name ? ' for ' + r.name : ''))) + '</b>' + (r.last ? ' <span class="field-note">· ' + esc(r.last) + '</span>' : '') + '</div>'
       + (r.need ? '<div class="lw-need">' + esc(r.need) + '</div>' : '')
@@ -269,8 +356,10 @@
     if(lost) h += '<div class="card lw-card lw-next" style="border-color:#9A9388;"><div class="lw-next-k" style="color:#6E6559;">Lost</div><div class="lw-next-t">' + esc(l.lost_reason || 'No reason recorded') + '</div><div class="field-note">Not lost after all puts them back where they were; the reason stays in the history.</div></div>';
     else if(l.status === 'Saved' && window.FutureOpps) h += FutureOpps.cardHtml(l);   /* 2026-10-15: saved for future, Reactivate here */
     else h += '<div class="card lw-card lw-next" style="border-color:' + tone[0] + ';">'
-      + '<div class="lw-next-head"><span class="lw-next-k" style="color:' + tone[1] + ';">' + esc(tone[2]) + '</span><span class="lw-next-big" style="color:' + tone[0] + ';">' + esc(r.when.big) + '</span>' + (r.when.sub ? '<span class="field-note">' + esc(r.when.sub) + '</span>' : '') + '</div>'
-      + '<div class="lw-next-t">' + esc(r.next.text) + '</div>'
+      + (gp ? '<div class="lw-next-head"><span class="lw-next-k" style="color:' + tone[1] + ';">Next · ' + esc(gp.date ? RR.dayWords(gp.date, ctx.today).replace(/^\w/, c => c.toUpperCase()) : gp.group === 'plan' || gp.group === 'call' || gp.group === 'odd' ? 'now' : 'set a date') + '</span>' + (gp.waited >= 1 && !gp.date ? '<span class="field-note">waiting ' + esc(LeadGroups.waitWords(gp.waited)) + '</span>' : '') + (gt ? '<span style="flex:1;"></span><span class="lg-temp lg-t-' + gt.v + '" title="' + esc(gt.why) + '" style="display:inline-block;font-weight:700;font-size:12px;border-radius:999px;padding:1px 9px;background:' + ({ hot:'#FDECEA', warm:'#FFF4E0', cold:'#E8EFFA' })[gt.v] + ';color:' + ({ hot:'#B42318', warm:'#A35A00', cold:'#2F5DA8' })[gt.v] + ';">● ' + ({ hot:'Hot', warm:'Warm', cold:'Cold' })[gt.v] + '</span><span class="field-note">' + (gt.by === 'hub' ? 'Hub: ' : '') + esc(gt.why) + ' · move to ' + ['hot', 'warm', 'cold'].filter(k => k !== gt.v).map(k => '<a href="javascript:void(0)" onclick="lgTemp(\'' + esc(l.id) + '\', \'' + k + '\')">' + ({ hot:'Hot', warm:'Warm', cold:'Cold' })[k] + '</a>').join(' or ') + '</span>' : '') + '</div>'
+        + '<div class="lw-next-t" style="font-size:18px;">' + esc(gp.next) + '</div><div class="field-note">' + esc(gp.happened) + (LeadGroups.contactLink(l) ? ' · ' + LeadGroups.contactLink(l) : '') + '</div>'
+      : '<div class="lw-next-head"><span class="lw-next-k" style="color:' + tone[1] + ';">' + esc(tone[2]) + '</span><span class="lw-next-big" style="color:' + tone[0] + ';">' + esc(r.when.big) + '</span>' + (r.when.sub ? '<span class="field-note">' + esc(r.when.sub) + '</span>' : '') + '</div>'
+      + '<div class="lw-next-t">' + esc(r.next.text) + '</div>')
       + (reply ? '<div class="lw-quote"><div class="lw-quote-k">' + esc(callerFirst) + ' wrote</div>"' + esc(reply.sub || reply.text) + '"</div>' : '')
       + (sc.text || sc.hint ? '<div class="lw-script">' + (sc.text ? '<div class="lw-quote-k" style="color:#A8660E;">Script · ' + esc(sc.title) + (sc.custom ? ' (your wording)' : '') + '</div>' + esc(sc.text) : '') + (sc.hint ? '<div class="lw-hint">' + esc(sc.hint) + '</div>' : '') + '</div>' : '')
       + '<div class="lb-actions">' + btn(l, r.primary, true) + r.secondary.filter(a => !(a.kind === 'log' && recLive())).map(a => btn(l, a, false)).join('')
@@ -281,12 +370,14 @@
       + (l.what_to_expect_sent_at ? '<div class="field-note" style="margin-top:6px;">✓ What to expect text sent ' + esc(new Date(l.what_to_expect_sent_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })) + (l.what_to_expect_sent_by === 'automatic' ? ' (automatic)' : '') + '.</div>'
         : (DATA.ops_settings || {}).what_to_expect_text_live === true && R().madeFromCall(l) && !l.said_yes_at && !l.auto_msgs_stopped_at ? '<div class="field-note" style="margin-top:6px;">The what to expect text goes to ' + esc(callerFirst) + ' automatically (7 AM to 8 PM).</div>' : '')
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
+    if(simple) h += quickHtml(l, ctx) + basics;   /* 2026-11-23: notes, people, who referred, right under the Next box; the Basics card after them */
     if(!lost) h += hintsHtml(l);   /* 2026-11-11: what the five program questions point to */
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
     if(!lost && vaShows(l)) h += vaHtml(l);   /* 2026-11-11: VA paperwork, filled in over the phone */
-    h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
+    h = '<div class="lw-grid"><div class="lw-main">' + h + (simple ? '' : knowHtml(l, ctx, r)) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r, simple) + '</div>';
     host.innerHTML = h; host.style.display = '';
     if(window.LeadBasics) setTimeout(() => LeadBasics.fill(l.id), 0);   /* fills the empty lines from the call, once */
+    if(simple) quickPeople(l);
     tab(); trim();
   }
   /* ── MEDICARE GUIDE INTAKE (Samantha 2026-10-15: "a place to embed or link https://app.crosbyhealth.com/login to do the intake
@@ -572,9 +663,10 @@
     '.lw-miss{display:inline-block;padding:1px 8px;border-radius:12px;font-size:10.5px;font-weight:700;background:#fff;color:#B91C1C;border:1px dashed #DC2626}',
     '.lw-tl{margin-top:10px;max-height:460px;overflow-y:auto}.lw-tl-row{display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:7px 0;border-top:1px solid var(--border);font-size:13px}.lw-tl-when{font-size:12px;color:var(--text-muted)}.lw-tl-family b{color:#B91C1C}.lw-tl-talked b{color:#15803D}.lw-tl-auto b{color:var(--text-muted);font-weight:600}.lw-tl-note b{font-weight:600}.lw-tl-stage b{color:var(--navy)}',
     '.lw-note{display:flex;gap:8px;margin-top:10px}.lw-note input{flex:1;font-size:13px}',
+    '.lwq{display:grid;gap:12px}.lwq-sec{display:grid;gap:5px}.lwq-sec>b{font-size:13px;color:var(--navy)}.lwq-note{display:flex;gap:8px;align-items:flex-start}.lwq-note textarea{flex:1;font:inherit;font-size:13.5px;padding:7px 9px;border:1px solid var(--border);border-radius:8px}.lwq-list{display:grid;gap:3px;font-size:13px}.lwq-form{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.lwq-heard{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:3px}.lwq-heard .lb-btn{font-size:12px;padding:3px 9px}.lwq-form input,.lwq-form select{font-size:13px;padding:6px 8px;width:auto;flex:1 1 140px}',
     '.lw-handoff{margin-top:10px;padding:10px 12px;background:#F6F9FD;border:1px solid var(--border);border-radius:8px}',
     '.lw-rail-t{font-size:13.5px;color:var(--navy)}.lw-up{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}.lw-contacts{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:8px}.lw-links{margin-top:6px;font-size:13px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:720px){.lw-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lw-facts{grid-template-columns:1fr}.lw-tl-row{grid-template-columns:1fr;gap:2px}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { lwCrosby, LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerOk:partnerOk, lwPartnerOwed:partnerOwed, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
+  Object.assign(window, { lwCrosby, LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerOk:partnerOk, lwPartnerOwed:partnerOwed, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwqNote, lwqPerson, lwqRef, lwqOpen, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
 })();

@@ -51,7 +51,7 @@ async()=>{
   const L=window.__log, $=id=>document.getElementById(id), txt=id=>(($(id)||{}).textContent||'');
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   switchTab('leadsstarts'); await sleep(200); renderLeadsStarts(); await sleep(200);
-  ok('off · the older list, an owner sees "Preview the new Leads list"', /need you now/.test(txt('lbNumbers'))&&/Preview the new Leads list/.test(txt('lbNumbers'))&&!document.querySelector('.lt-row'));
+  ok('off · the older list, an owner sees "Preview the new Leads list"', /need you now/.test(txt('lbNumbers'))&&/Preview the simpler Leads list/.test(txt('lbNumbers'))&&!document.querySelector('.lt-row'));
   lcPreview(true); await sleep(250);
   const rows=()=>[...document.querySelectorAll('#lbBoard .lt-row:not(.lt-headrow)')], names=()=>rows().map(r=>r.querySelector('.lt-namebtn').textContent);
   const tabs=[...document.querySelectorAll('.lt-tab')].map(b=>b.textContent.replace(/\s+/g,' ').trim());
