@@ -57,13 +57,23 @@ async()=>{
   ok('clicking a card opens their profile', L.opened.some(o=>o[0]==='L2'), L.opened);
   /* how they came in, how they heard about us, spam */
   ok('card · says how they came in', /Came in: /.test((document.querySelector('[data-lg-id="L3"]')||{}).textContent||''));
-  const ask=document.querySelector('[data-lg-id="L3"] .lg-ask');
+  const ask=document.querySelector('[data-lg-id="L3"] .lg-ask-heard');
   ok('card · prompts "How did they hear about us?" while it is empty', !!ask);
   ask.click(); await sleep(150);
   const opt=[...document.querySelectorAll('.ccpop [data-k]')].find(b=>b.dataset.k==='friend'); if(opt) opt.click(); await sleep(300);
   ok('one tap saves how they heard, with who', (DATA.leads.find(l=>l.id==='L3')||{}).heard_about==='friend' && DATA.leads.find(l=>l.id==='L3').heard_about_by==='sam@mo-care.com');
-  ok('card · then shows it instead of the prompt', /Heard about us: A friend or family member/.test((document.querySelector('[data-lg-id="L3"]')||{}).textContent||'') && !document.querySelector('[data-lg-id="L3"] .lg-ask'));
+  ok('card · then shows it instead of the prompt', /Heard about us: A friend or family member/.test((document.querySelector('[data-lg-id="L3"]')||{}).textContent||'') && !document.querySelector('[data-lg-id="L3"] .lg-ask-heard'));
   ok('card · a Spam button on every card', document.querySelectorAll('#lgCard [data-lg-id] .lg-spam').length===6);
+  /* start, quoted, hours, pays with */
+  const l1=()=>document.querySelector('[data-lg-id="L1"]');
+  ok('card · start, quoted, hours and pays with at a glance', /Hours 15 h\/wk/.test(l1().textContent) && /Pays with Private pay/.test(l1().textContent), l1().textContent);
+  const qb=[...l1().querySelectorAll('.lg-facts .lg-ask')].find(b=>/quoted/.test(b.textContent));
+  ok('card · a missing quote is a button to fill it', !!qb);
+  qb.click(); await sleep(150); $('lgfIn').value='$34/hr'; document.querySelector('.ccpop [data-v="in"]').click(); await sleep(300);
+  ok('one tap saves the quote', DATA.leads.find(l=>l.id==='L1').quoted_price_amount==='$34/hr' && DATA.leads.find(l=>l.id==='L1').price_quoted===true && /Quoted \$34\/hr/.test(l1().textContent));
+  const sb=[...l1().querySelectorAll('.lg-facts .lg-ask')].find(b=>/start/.test(b.textContent));
+  sb.click(); await sleep(150); document.querySelector('.ccpop [data-v="this_week"]').click(); await sleep(300);
+  ok('one tap saves when they need to start', (DATA.leads.find(l=>l.id==='L1').desired_start||{}).kind==='this_week' && /Start This week/.test(l1().textContent), l1().textContent);
   /* chart */
   lgView('chart'); await sleep(250);
   const heads=[...document.querySelectorAll('#lgCard .lg-table th')].map(t=>t.textContent);

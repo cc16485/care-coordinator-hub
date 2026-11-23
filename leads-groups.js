@@ -219,7 +219,19 @@
   function heardHtml(l){
     const H = root.HeardAbout, k = String(l.heard_about || '');
     if(H && k && H.label(k)) return '<span class="lg-heard">Heard about us: ' + esc(H.label(k)) + '</span>';
-    return H ? '<button class="lg-ask" data-no-open="1" onclick="lgHeard(\'' + esc(l.id) + '\', this)">How did they hear about us?</button>' : '';
+    return H ? '<button class="lg-ask lg-ask-heard" data-no-open="1" onclick="lgHeard(\'' + esc(l.id) + '\', this)">How did they hear about us?</button>' : '';
+  }
+  /* her ask 2026-11-23: "need how much we quoted them, when they need to start, a lot": the facts at a glance on every card and
+     chart row; a missing one is a gold button that fills it with one tap (nothing is sent) */
+  const PAYS = [['private', 'Private pay'], ['ltc', 'LTC insurance'], ['va', 'VA'], ['guide', 'Medicare GUIDE'], ['cds', 'CDS'], ['other', 'Other']];
+  function factsHtml(l, today){
+    let start = ''; try{ start = R().desiredStartWords(l, today).replace(/^(Needs|Wants) care /, '').replace(/^\w/, c => c.toUpperCase()); }catch(e){}
+    const hrs = String(l.number_of_hours || (l.schedule && l.schedule.hours_per_week) || '').trim();
+    const pay = l.funding_source ? ((R().PAYER_WORDS || {})[l.funding_source] || l.funding_source) : '';
+    const quote = l.price_quoted ? (String(l.quoted_price_amount || '').trim() || 'yes') : '';
+    const f = (label, v, k) => v ? '<span class="lg-fact"><span>' + label + '</span> ' + esc(v) + '</span>'
+      : '<button class="lg-ask" data-no-open="1" onclick="lgFact(\'' + esc(l.id) + '\', \'' + k + '\', this)">+ ' + label.toLowerCase() + '</button>';
+    return '<div class="lg-facts" data-no-open="1">' + f('Start', start, 'start') + f('Quoted', quote, 'quote') + f('Hours', hrs ? hrs + ' h/wk' : '', 'hours') + f('Pays with', pay, 'pay') + '</div>';
   }
   function spamHtml(l){ return '<button class="linklike lg-spam" data-no-open="1" onclick="lpMarkSpam(\'' + esc(l.id) + '\', this)" title="Not a real family: it leaves every list and count, and is never contacted">Spam</button>'; }
   function viewNow(){ try{ return root.localStorage && root.localStorage.getItem('lgView') === 'chart' ? 'chart' : 'board'; }catch(e){ return 'board'; } }
@@ -248,6 +260,7 @@
       + '<div class="lg-cmid">' + dots + '<span class="lg-sub">' + esc(p.happened) + (touches(l).length ? ' · ' + touches(l).length + (touches(l).length === 1 ? ' call or text' : ' calls and texts') : '') + '</span></div>'
       + (p.why ? '<div class="lg-sub lg-cwhy">' + esc(p.why) + '</div>' : '')
       + '<div class="lg-came"><span class="lg-sub">Came in: ' + esc(cameWords(l, h.today)) + '</span>' + heardHtml(l) + '</div>'
+      + factsHtml(l, h.today)
       + '<div class="lg-cnext' + (late(x) ? ' lg-late' : p.group === 'wait' ? ' lg-waitc' : '') + '">' + esc(nextLine(x, h)) + '</div>'
       + '<div class="lg-cact" data-no-open="1">' + h.btn(l, p.button, p.group !== 'wait') + contactLink(l) + '<span class="lg-move">Move: ' + TEMPS.filter(k => k !== t.v).map(k => '<button class="lg-temp lg-t-off" title="Move to ' + TEMP_WORD[k] + '" onclick="lgTemp(\'' + esc(l.id) + '\', \'' + k + '\')">' + TEMP_WORD[k] + '</button>').join(' ') + ' · ' + spamHtml(l) + '</span></div></div>';
   }
@@ -266,7 +279,7 @@
         : h.btn(x.l, p.button, true) + '<div class="' + (late(x) ? 'lg-late' : 'lg-sub') + '">' + esc(p.next + (p.waited >= 1 ? ' · ' + waitWords(p.waited) + (late(x) ? ' late' : '') : '')) + '</div>') + '</td>';
     };
     return '<div class="lg-scroll"><table class="lg-table"><thead><tr><th class="lg-fam">Family</th><th>Hot / Warm / Cold</th><th>Every call &amp; text</th>' + STEP_WORDS.map(w => '<th>' + esc(w) + '</th>').join('') + '</tr></thead><tbody>'
-      + rows.map(x => '<tr data-open-lead="' + esc(x.l.id) + '" data-open-tab="summary"><td class="lg-fam"><b>' + esc(nameOf(x)) + '</b><div class="lg-sub">' + esc(x.p.happened) + (x.p.why ? ' ' + esc(x.p.why) : '') + '</div><div class="lg-came" data-no-open="1"><span class="lg-sub">Came in: ' + esc(cameWords(x.l, h.today)) + '</span>' + heardHtml(x.l) + ' ' + spamHtml(x.l) + '</div></td>'
+      + rows.map(x => '<tr data-open-lead="' + esc(x.l.id) + '" data-open-tab="summary"><td class="lg-fam"><b>' + esc(nameOf(x)) + '</b><div class="lg-sub">' + esc(x.p.happened) + (x.p.why ? ' ' + esc(x.p.why) : '') + '</div><div class="lg-came" data-no-open="1"><span class="lg-sub">Came in: ' + esc(cameWords(x.l, h.today)) + '</span>' + heardHtml(x.l) + ' ' + spamHtml(x.l) + '</div>' + factsHtml(x.l, h.today) + '</td>'
         + '<td data-no-open="1"><span class="lg-tpick">' + TEMPS.map(k => '<button class="lg-temp ' + (k === x.t.v ? 'lg-t-' + k : 'lg-t-off') + '" title="' + esc(k === x.t.v ? x.t.why : 'Move to ' + TEMP_WORD[k]) + '"' + (k === x.t.v ? '' : ' onclick="lgTemp(\'' + esc(x.l.id) + '\', \'' + k + '\')"') + '>' + TEMP_WORD[k] + '</button>').join('') + '</span><div class="lg-sub">' + (x.t.by === 'hub' ? 'Hub: ' : '') + esc(x.t.why) + '</div></td>'
         + '<td class="lg-touches">' + touchesHtml(x.l, h.today) + (contactLink(x.l) ? '<div>' + contactLink(x.l) + '</div>' : '') + '</td>' + x.s.map((s, i) => cell(x, s, i)).join('') + '</tr>').join('')
       + '</tbody></table></div>';
@@ -332,6 +345,7 @@
       + '.lg-cact{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;}.lg-move{font-size:12px;color:var(--text-muted);}.lg-move .linklike{font-size:12px;}'
       + 'button.lg-temp{border:none;cursor:pointer;font:inherit;font-weight:700;font-size:12px;}.lg-t-off{background:transparent;color:var(--text-muted);border:1px solid var(--border)!important;}.lg-t-off:hover{color:var(--navy);border-color:var(--navy)!important;}.lg-tpick{display:inline-flex;gap:4px;flex-wrap:wrap;}'
       + '.lg-came{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;}.lg-heard{font-size:11.5px;color:#1D7A3E;}.lg-ask{font:inherit;font-size:11.5px;font-weight:700;color:#A35A00;background:#FFF4E0;border:1px dashed #D97706;border-radius:999px;padding:1px 9px;cursor:pointer;}.lg-spam{font-size:12px;color:var(--text-muted);}'
+      + '.lg-facts{display:flex;flex-wrap:wrap;gap:4px 6px;}.lg-fact{font-size:12px;background:var(--bg);border-radius:6px;padding:1px 7px;}.lg-fact span{color:var(--text-muted);}'
       + '.lg-hpop{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}'
       + '.lg-thread{font-size:12px;font-weight:600;color:#1F7A8C;white-space:nowrap;}'
       + '.lg-touches{min-width:220px;max-width:340px;}.lg-touch{display:inline-block;font-size:11.5px;border-radius:6px;padding:1px 6px;margin:0 4px 3px 0;background:var(--bg);color:var(--text);white-space:nowrap;}'
@@ -396,6 +410,26 @@
     if(typeof root.ccToast === 'function') root.ccToast('Saved: ' + H.label(k) + '.');
     redraw();
   }
+  function lgFact(id, k, anchor){
+    const l = leadById(id); if(!l || typeof root.ccPopOpen !== 'function') return;
+    const T = { start:'When do they need care to start?', quote:'What did we quote them?', hours:'How many hours a week?', pay:'How will they pay?' }[k];
+    const body = k === 'start' ? '<div class="lg-hpop">' + [['asap', 'As soon as possible'], ['this_week', 'This week'], ['this_month', 'This month'], ['planning', 'Planning ahead']].map(o => '<button class="lb-btn" data-v="' + o[0] + '">' + o[1] + '</button>').join('') + '</div><div class="lg-hpop"><label class="lg-sub" for="lgfDate">Or by a date</label><input type="date" id="lgfDate"><button class="lb-btn" data-v="by_date">Save the date</button></div>'
+      : k === 'pay' ? '<div class="lg-hpop">' + PAYS.map(o => '<button class="lb-btn" data-v="' + o[0] + '">' + o[1] + '</button>').join('') + '</div>'
+      : '<div class="lg-hpop"><input id="lgfIn" ' + (k === 'hours' ? 'type="number" min="1" placeholder="e.g. 12"' : 'placeholder="e.g. $34/hr, 4-hour visits"') + '><button class="lb-btn lb-btn-primary" data-v="in">Save</button></div>';
+    const pop = root.ccPopOpen(anchor || document.body, '<div style="font-size:14px;font-weight:800;color:var(--navy);">' + esc(T) + '</div>' + body + '<div class="lg-sub" style="margin-top:6px;">Saved on the lead. Nothing is sent to the family.</div>', { width:400 });
+    const inp = pop.querySelector('#lgfIn'); if(inp){ inp.focus(); inp.onkeydown = e => { if(e.key === 'Enter') pop.querySelector('[data-v="in"]').click(); }; }
+    pop.querySelectorAll('[data-v]').forEach(b => b.onclick = async () => {
+      const v = b.dataset.v, val = inp ? String(inp.value || '').trim() : '';
+      if(k === 'start'){ const d = String((pop.querySelector('#lgfDate') || {}).value || ''); if(v === 'by_date' && !d) return; R().compose(l, { desired_start_kind:v, desired_start_date:v === 'by_date' ? d : '' }); }
+      else if(k === 'pay') l.funding_source = v;
+      else if(k === 'quote'){ if(!val) return; l.price_quoted = true; l.quoted_price_amount = val; }
+      else if(k === 'hours'){ if(!(Number(val) > 0)) return; l.number_of_hours = val; }
+      if(typeof root.ccPopClose === 'function') root.ccPopClose();
+      if(typeof root.persist === 'function') await root.persist('leads', l);
+      if(typeof root.ccToast === 'function') root.ccToast('Saved.');
+      redraw();
+    });
+  }
   function lgView(v){ try{ root.localStorage.setItem('lgView', v === 'chart' ? 'chart' : 'board'); }catch(e){} redraw(); }
   async function lgTemp(id, v){
     const l = leadById(id); if(!l || TEMPS.indexOf(v) < 0) return;
@@ -406,8 +440,8 @@
     redraw();
   }
 
-  const api = { place, nextFor, groups, html, summary, model, temp, hubTemp, steps, wire, viewNow, touches, contactLink, cameWords, heardHtml, notFamily, familyReply, lastWords, tries, talked, liveOn, previewOn, setPreview, showing, previewBar, waitWords };
+  const api = { place, nextFor, groups, html, summary, model, temp, hubTemp, steps, wire, viewNow, touches, contactLink, cameWords, heardHtml, factsHtml, notFamily, familyReply, lastWords, tries, talked, liveOn, previewOn, setPreview, showing, previewBar, waitWords };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.LeadGroups = api;
-  root.lgFamily = lgFamily; root.lgPartner = lgPartner; root.lgPreview = lgPreview; root.lgView = lgView; root.lgTemp = lgTemp; root.lgHeard = lgHeard; root.lgSaveHeard = saveHeard;
+  root.lgFamily = lgFamily; root.lgPartner = lgPartner; root.lgPreview = lgPreview; root.lgView = lgView; root.lgTemp = lgTemp; root.lgHeard = lgHeard; root.lgFact = lgFact; root.lgSaveHeard = saveHeard;
 })(typeof window !== 'undefined' ? window : globalThis);
