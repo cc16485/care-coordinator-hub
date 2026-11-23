@@ -174,6 +174,8 @@
     const calmBar = simple ? '' : cards && window.LeadTable && LeadTable.calmShowing && owner && !LeadTable.calmLive(DATA.ops_settings || {})
       ? (calm ? '<div class="lc-preview"><b>Preview of the calmer Leads list.</b> Only you see it, in this browser. Everyone else still has the colourful one.<span style="flex:1;"></span><button class="lb-btn" onclick="ltCalmPreview(false)">Back to the colourful list</button></div>'
         : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="ltCalmPreview(true)">Preview the calmer Leads list (only you see it)</button></div>') : '';
+    /* 2026-11-23: the simpler list replaces these; their "Preview ..." links go (an owner already previewing still gets Back) */
+    const quietOld = s => window.LeadGroups && /lb-preview-ask/.test(s) ? '' : s;
     /* 2026-11-01 Send to Caring CDS: who is waiting to be sent, and sends that did not finish (send-to-cds.js) */
     const cdsCard = window.SendToCds ? SendToCds.boardHtml() + SendToCds.previewAsk() : '';
     const sub = document.getElementById('lsSubtitle');
@@ -188,8 +190,8 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     /* Lead turns (Stage 1, policy 2026-10-18): who gets the next new lead, only while turns are on */
     const nextTile = opts.nextUp ? '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:var(--navy);font-size:18px;">' + esc(opts.nextUp) + '</span><span class="lb-tile-l">next up for a new lead</span></div>' : '';
-    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = cdsCard + previewBar + calmBar + (simple ? '' : simpleBar) + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
-    else if(nums){ nums.style.display = ''; nums.innerHTML = cdsCard + previewBar + simpleBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
+    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = cdsCard + quietOld(previewBar) + quietOld(calmBar) + (simple ? '' : quietOld(simpleBar)) + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
+    else if(nums){ nums.style.display = ''; nums.innerHTML = cdsCard + quietOld(previewBar) + quietOld(simpleBar) + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
       + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
       + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>'; }
@@ -213,6 +215,19 @@
       /* 2026-10-15: Medicaid is no longer accepted: State submissions only while an older Medicaid family is still open */
       + ((DATA.leads || []).some(x => x && x.funding_source === 'medicaid' && !x.archived && x.status !== 'Lost') ? '<button class="filter-pill' + (LB.filter === 'state' ? ' active' : '') + '" onclick="lbFilter(\'state\')">State submissions</button>' : '')
       + '<span style="flex:1;"></span><button class="linklike" onclick="switchLeadsSubtab(\'followups\')">All follow-up drafts (pending, approved, sent)</button>';
+    /* 2026-11-23 (her approved mockup 1nPX3KE4umygkdu3VEtoHW): the simpler list, three groups and one button a row (leads-groups.js),
+       while ops_settings.leads_groups_live is on, or an owner's own preview. It replaces the other layouts and their preview links. */
+    const groupsOn = !!(window.LeadGroups && LeadGroups.showing(DATA.ops_settings || {}, owner));
+    if(groupsOn && LB.filter === 'All'){
+      if(nums){ nums.style.display = 'block'; nums.innerHTML = cdsCard + (owner && !LeadGroups.liveOn(DATA.ops_settings || {}) ? LeadGroups.previewBar(true) : ''); }
+      if(fl) fl.innerHTML = '';
+      if(sub) sub.textContent = 'Every family from their first call until they say yes, as Hot, Warm and Cold. The Hub places each family; drag a card to move it. Once they say yes they move to Client Care → Getting ready.';
+      if(window.LeadBasics) setTimeout(() => LeadBasics.background(), 1500);
+      box.innerHTML = (window.LeadRecorder ? LeadRecorder.html() : '') + (window.CallNotes ? CallNotes.summaryHtml() : '') + LeadGroups.html(work.filter(x => lbIn(x, 'All')), now, { btn, today });
+      LeadGroups.wire(box);
+      return;
+    }
+    if(nums && owner && window.LeadGroups && !groupsOn) nums.insertAdjacentHTML('afterbegin', LeadGroups.previewBar(false));
     /* the board itself */
     if(LB.filter === 'future' && window.FutureOpps){ box.innerHTML = FutureOpps.html(); return; }
     if(LB.filter === 'state'){ box.innerHTML = (typeof lsStateHtml === 'function') ? lsStateHtml() : ''; return; }

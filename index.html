@@ -5010,21 +5010,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the new Leads list for everyone</button>
   <span class="field-note" id="lcSaved"></span>
 </div>
-<!-- Calmer Leads list (2026-10-30, her approved mockup https://claude.ai/artifact/9ReTBpXJ7PwkbreCVSb8te): ops_settings.leads_calm_live -->
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Calmer Leads list</div>
-<p class="hint">Colour on the Leads list only means "this needs you": a red edge and red words for families who need you now, gold for today, and everyone else in plain gray. The coloured circles and tags become one gray line of words under the name, "Missing" joins the Next line, and every main button looks the same. Tabs, sorting, the order of the rows and every button work the same. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
-<div id="ltcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<!-- Simpler Leads list (2026-11-23, her approved mockup https://claude.ai/artifact/1nPX3KE4umygkdu3VEtoHW, "Yes, build it"): ops_settings.leads_groups_live.
+     It replaces the Calmer and Cleaner lists (leads_calm_live, leads_simple_live), which were never turned on; their code stays, their switches are gone. -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Simpler Leads list</div>
+<p class="hint">The Leads page as one list in three groups: <b>Call today</b> (never reached, they called back, or we talked and nothing is booked), <b>Waiting, with a date</b>, and <b>Ready for the care plan</b>. Each row says what happened last and what's next, with one button. Leads that don't look like families (a business email nobody has talked to, or one phone number on several leads) wait in a small box for a person: Spam, Partner, or It's a family. A lead's page shows 4 tabs until the family says yes and one Next box in the same words as the list. Nothing moves or closes by itself, and nothing is sent to any family. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
+<div id="lgSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="ltcToggleBtn" onclick="ltcToggle(this)">Turn on the calmer Leads list for everyone</button>
-  <span class="field-note" id="ltcSaved"></span>
-</div>
-<!-- Cleaner Leads list, the GoHighLevel layout (2026-11-15, her "Mock up Leads" then "Build it switched off"): ops_settings.leads_simple_live -->
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Cleaner Leads list (GoHighLevel layout)</div>
-<p class="hint">The Leads page laid out like the lists in GoHighLevel: one row of tabs (All, To call, Home visit, Deciding), then Add filter (whose families, payer, how ready they sound), Sort, a list or card view, and Search. The list is plain columns: Family, Hours, Per month, When and Status, with a ··· on each row. Call, the next step and They said yes move into that ··· menu. Red still means a family needs you now and gold means today. Only the look changes. Nothing is sent to any family. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
-<div id="ltsSetNow" class="field-note" style="margin:6px 0 8px;"></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="ltsToggleBtn" onclick="ltsToggle(this)">Turn on the cleaner Leads list for everyone</button>
-  <span class="field-note" id="ltsSaved"></span>
+  <button class="secondary" id="lgToggleBtn" onclick="lgToggle(this)">Turn on the simpler Leads list for everyone</button>
+  <span class="field-note" id="lgSaved"></span>
 </div>
 <!-- Call notes from recorded calls (2026-10-29, her "do the same for our leads" after the CDS hub): ops_settings.call_notes_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Call notes from recorded calls</div>
@@ -7641,8 +7634,9 @@ The HomeTogether team</pre>
 <script src="leads-table.js?v=4"></script><!-- Calmer Leads list (2026-10-30): behind ops_settings.leads_calm_live -->
 <script src="family-link.js?v=1"></script>
 <script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
-<script src="leads-board.js?v=24"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=16"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="leads-groups.js?v=2"></script><!-- The simpler Leads list (2026-11-23): three groups, behind ops_settings.leads_groups_live -->
+<script src="leads-board.js?v=25"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=17"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="client-glance.js?v=4"></script><!-- the client at a glance (2026-10-29) -->
@@ -7672,7 +7666,7 @@ The HomeTogether team</pre>
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=3"></script>
 <script src="future-opps.js?v=3"></script>
-<script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
+<script src="lead-basics.js?v=2"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-prep.js?v=1"></script><!-- New family cards, practice replay (2026-11-19): owners only, a view in Call Follow Ups -->
 <script src="call-practice.js?v=16"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
@@ -19466,6 +19460,25 @@ async function ltsToggle(btn){
   const sv=document.getElementById('ltsSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   ltsSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* Simpler Leads list (2026-11-23): the switch, owners only (leads-groups.js) */
+function lgSetFill(){
+  const now=document.getElementById('lgSetNow'), b=document.getElementById('lgToggleBtn'); if(!now) return;
+  const on=!!(window.LeadGroups&&LeadGroups.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the simpler Leads list.':'<b style="color:#B7791F;">Off.</b> Everyone sees the Leads list as it is today'+(window.LeadGroups&&LeadGroups.previewOn()?' except you (preview, this browser).':'.'))+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the simpler Leads list':'Turn on the simpler Leads list for everyone'; b.style.display=owner?'':'none'; }
+}
+async function lgToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the Leads list.'); return; }
+  const on=!(window.LeadGroups&&LeadGroups.liveOn(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on the simpler Leads list for everyone?\n\nThree groups (Call today, Waiting with a date, Ready for the care plan), one button a row, and a 4-tab lead page. Nothing is sent to any family.'
+    :'Turn off the simpler Leads list? Everyone goes back to the list as it was.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.leads_groups_live=on; if(on&&!m.leads_groups_live_since) m.leads_groups_live_since=new Date().toISOString(); return ['Simpler Leads list '+(on?'ON':'OFF')]; }, 'Simpler Leads list');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('lgSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  lgSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 /* Call notes (2026-10-29): the switch, owners only. Off = no call notes anywhere (an owner may preview them). */
 function cnSetFill(){
   const now=document.getElementById('cnSetNow'), b=document.getElementById('cnToggleBtn'), pv=document.getElementById('cnPreviewBtn'); if(!now) return;
@@ -19654,6 +19667,7 @@ function lhSetFill(){
   try{ lcSetFill(); }catch(e){}
   try{ ltcSetFill(); }catch(e){}
   try{ ltsSetFill(); }catch(e){}
+  try{ lgSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
   try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
   try{ if(window.CAA) CAA.settingsFill(); }catch(e){}

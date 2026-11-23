@@ -52,7 +52,7 @@ async()=>{
   switchTab('leadsstarts'); await sleep(200); lcPreview(true); await sleep(250);
   const rows=()=>[...document.querySelectorAll('#lbBoard .lt-row:not(.lt-headrow)')], row=re=>rows().find(r=>re.test(r.textContent));
   ok('off · the colourful list as before, with initials and tags', !document.querySelector('.lt-calm')&&!!document.querySelector('.lt-av')&&!!document.querySelector('.lt-tag'));
-  ok('off · an owner sees "Preview the calmer Leads list"', /Preview the calmer Leads list/.test(txt('lbNumbers')));
+  ok('off · the simpler list replaced it: an owner sees "Preview the simpler Leads list", not the calmer one (2026-11-23)', /Preview the simpler Leads list/.test(txt('lbNumbers'))&&!/Preview the calmer Leads list/.test(txt('lbNumbers')));
   const before=rows().map(r=>r.querySelector('.lt-namebtn').textContent).join('|');
   ltCalmPreview(true); await sleep(250);
   ok('preview · calm list with the preview bar', !!document.querySelector('.lt-calm')&&/Preview of the calmer Leads list/.test(txt('lbNumbers')), txt('lbNumbers'));
