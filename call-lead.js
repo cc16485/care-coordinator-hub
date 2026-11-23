@@ -280,7 +280,8 @@
     }
     /* the old AI's review list is replaced by this fill: its open suggestions are closed as replaced (kept, not deleted) */
     (Array.isArray(lead.ai_suggestions) ? lead.ai_suggestions : []).forEach(sg => { if(sg && !sg.reviewed){ sg.reviewed = true; sg.reviewed_by = me(); sg.reviewed_at = new Date().toISOString(); sg.review_note = 'Replaced by Fill from the call'; } });
-    lead.filled_from_calls_at = new Date().toISOString(); lead.filled_from_calls_by = me();
+    lead.filled_from_calls_at = new Date().toISOString(); lead.filled_from_calls_by = p.auto ? p.auto.signer : me();
+    if(p.auto){ lead.made_by_ai = { at: lead.filled_from_calls_at, call: p.message_id, took_call: p.auto.signer, browser: me() }; }
     if(!lead.ghl_contact_id && p.contact_id) lead.ghl_contact_id = p.contact_id;
     if(p.at && (!lead.last_call_at || String(p.at) > String(lead.last_call_at))) lead.last_call_at = p.at;
     CL.pending = null;
@@ -539,6 +540,7 @@
         });
         for(const it of changed) await persist('ops_items', it);
         if(changed.length) refresh();
+        autoPass();
       }catch(e){ /* the waiting list on Call Follow Ups still shows them */ }
       finally{ RC = null; }
     })();
@@ -577,6 +579,7 @@
     if(f) h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px;">' + tile('Hours', f.hours) + tile('When', f.when) + tile('Paying with', f.payer) + tile('Start', f.start) + '</div>';
     else if(!it._facts_failed) h += '<div class="field-note" style="margin-top:8px;">Reading the call for the details…</div>';
     if(it.detail) h += '<div style="font-size:14px;margin-top:9px;line-height:1.45;">' + esc(it.detail) + '</div>';
+    if(it.auto_note) h += '<div style="font-size:13px;margin-top:6px;color:#8A5A00;">' + esc(it.auto_note) + '</div>';
     if(f && f.not_new) h += '<div style="font-size:13px;margin-top:6px;color:#A83A2F;"><b>On a closer read the AI is not sure this is a new family.</b> Check the form first.</div>';
     h += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">';
     const y = CL.yes[id];
@@ -592,6 +595,82 @@
       + '<a href="#" onclick="CallLead.play(\'' + esc(id) + '\',this);return false;">Play the call</a>';
     h += '</div><div id="nfrec-' + esc(id) + '"></div></div>';
     return h;
+  }
+
+  /* ── 2026-11-23 her ask: "automatically mark them as lead when you read the conversation and its obviously a lead" ──
+     Her picks: only a call where we TALKED with them (about 2 minutes or more, answered by someone on the team), and the
+     lead gets the what to expect text like any lead made from a call, signed by whoever took the call.
+     Switch ops_settings.auto_lead_from_calls_live (hers); only calls from after it went on (auto_lead_from_calls_live_since).
+     It runs in ONE browser: the card owner's (the person who took the call), one tab at a time (a lock in localStorage), and
+     never while someone has the lead form open. "Obvious" = the AI read the transcript, says is_new_family true, and heard a
+     first name and a phone. Anything less, or the save stopping for a person (same family found), leaves the row for a
+     person, with the reason on the card. Each card is tried once. */
+  const AUTO_MIN_S = 120, AUTO_WINDOW_H = 12, AUTO_LOCK = 'clAutoLock';
+  const autoSet = () => (typeof DATA !== 'undefined' && DATA.ops_settings) || {};
+  function autoWhy(it, nowMs){   /* '' = try it; otherwise why not (for the check) */
+    const st = autoSet(), src = it.source || {}, r = CL.readings[it.source_id] || {};
+    if(st.auto_lead_from_calls_live !== true) return 'switch off';
+    const since = String(st.auto_lead_from_calls_live_since || ''), at = String(src.call_at || it.created_at || '');
+    if(!since || at < since) return 'from before the switch';
+    if(nowMs - Date.parse(at) > AUTO_WINDOW_H * 36e5) return 'too old';
+    if(it.status !== 'open' || it.auto_try) return 'done or tried';
+    if((Number(src.seconds) || 0) < AUTO_MIN_S) return 'short call or voicemail';
+    const took = answeredBy(r.answered_by);
+    if(!took || !took.owner || !took.name) return 'nobody on the team took it';
+    const mine = String(typeof opsMeKey === 'function' ? opsMeKey() : '').toLowerCase();
+    if(!mine || String(it.owner || '').toLowerCase() !== mine) return 'not my card';
+    return '';
+  }
+  let AUTO = null, AUTO_AGAIN = false;
+  function autoPass(){
+    if(AUTO){ AUTO_AGAIN = true; return AUTO.then(() => AUTO || autoPass()); }   /* asked while a pass runs: one more pass after it */
+    AUTO_AGAIN = false;
+    AUTO = (async () => {
+      await null;   /* so AUTO is set before this pass can finish (a pass with nothing to do would otherwise leave it set forever) */
+      try{
+        const nowMs = Date.now();
+        for(const it of nfItems().filter(x => x && x.kind === 'new_family_call')){
+          if(autoWhy(it, nowMs)) continue;
+          const modal = document.getElementById('leadModalBackdrop');
+          if(modal && modal.classList.contains('open')) return;   /* someone is using the lead form: next time */
+          try{ const l = Number(localStorage.getItem(AUTO_LOCK) || 0); if(l && nowMs - l < 90000) return; localStorage.setItem(AUTO_LOCK, String(nowMs)); }catch(e){}
+          try{ await autoOne(it); } finally { try{ localStorage.removeItem(AUTO_LOCK); }catch(e){} }
+        }
+      }catch(e){ CL.autoErr = String(e && e.message || e); }
+      finally{ AUTO = null; }
+      if(AUTO_AGAIN) await autoPass();
+    })();
+    return AUTO;
+  }
+  async function autoOne(it){
+    const id = it.source_id, r = CL.readings[id] || {}, took = answeredBy(r.answered_by), nowIso = new Date().toISOString();
+    it.auto_try = { at: nowIso, by: me() }; await persist('ops_items', it);   /* tried once, whatever happens */
+    const leave = async why => { it.auto_try.left = why; it.auto_note = 'The Hub did not make this lead by itself: ' + why + '. Yes, lead or Not a lead.'; await persist('ops_items', it); refresh(); };
+    let d; try{ d = await readCall(id); }catch(e){ return leave('the call could not be read'); }
+    const p = d.prefill || {}, first = String(p.first_name || '').trim();
+    if(d.transcript !== true) return leave('there is no transcript of the call');
+    if(d.is_new_family !== true) return leave('the AI is not sure it is a new family');
+    if(!first || PLACEHOLDER.test(first)) return leave('no name was heard');
+    if(!String(p.phone || '').replace(/\D/g, '')) return leave('no phone number');
+    const modal = document.getElementById('leadModalBackdrop');
+    if(modal && modal.classList.contains('open')) { delete it.auto_try; await persist('ops_items', it); return; }
+    CL.working[id] = true; refresh();
+    try{
+      if(modal) modal.classList.add('cl-quiet');
+      fillForm(d, '');
+      if(CL.pending) CL.pending.auto = { signer: took.name };
+      if(typeof saveLead !== 'function') throw new Error('the lead form is not loaded');
+      await saveLead();
+      if(modal && modal.classList.contains('open')){   /* the save stopped for a person: close it quietly, leave the row */
+        CL.pending = null; if(typeof closeModal === 'function') closeModal('leadModalBackdrop'); else modal.classList.remove('open');
+        await leave('the same family may already be in the Hub');
+      } else {
+        const l = leadFor(id);
+        it.auto_try.made = l ? String(l.id) : ''; await persist('ops_items', it);
+        say(l ? leadName(l) + ' is a lead (made from ' + String(took.name).split(/\s+/)[0] + '\'s call).' : 'Lead made from a call.');
+      }
+    }catch(e){ CL.pending = null; try{ if(modal && modal.classList.contains('open')){ if(typeof closeModal === 'function') closeModal('leadModalBackdrop'); else modal.classList.remove('open'); } }catch(_){} await leave('the save did not finish (' + String(e && e.message || e).slice(0, 80) + ')'); }
+    finally{ if(modal) modal.classList.remove('cl-quiet'); delete CL.working[id]; reconcile().then(refresh); }
   }
 
   function yes(id){
@@ -648,5 +727,5 @@
     finally{ if(a) a.textContent = was; }
   }
 
-  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, repaint, _state: CL };
+  window.CallLead = { suppressed, answeredBy, reconcile, autoPass, autoWhy, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, repaint, _state: CL };
 })();

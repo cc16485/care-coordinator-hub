@@ -222,7 +222,7 @@
   /* rows [{it, lane, since}] that belong on Today, as one group per person: care first (newest first), then people
      waiting to hear back and new families (longest wait first), then fresh promises and call to-dos (oldest first) */
   function todayGroups(rows, now){
-    const tierOf = r => r.lane === 'care' ? 0 : (/^(reply|newfam)$/.test(waitType(r.it)) ? 1 : 2);
+    const tierOf = r => waitType(r.it) === 'newfam' ? -1 : r.lane === 'care' ? 0 : (waitType(r.it) === 'reply' ? 1 : 2);   /* her word 11-23: possible new families on top */
     const by = {}, out = [];
     (rows || []).forEach(r => {
       const k = todayKey(r.it), g = (k && by[k]) || { key:k || 'i:' + r.it.id, rows:[] };
@@ -422,7 +422,7 @@
     + '.opl-tile.w b{color:var(--teal);}.opl-tile.c b{color:var(--red);}.opl-tile.b b{color:var(--amber);}.opl-tile span{font-weight:700;font-size:14px;}.opl-tile small{color:var(--text-muted);font-size:12px;}'
     + '.opl-lane{background:var(--card,#fff);border:1px solid var(--border);border-radius:12px;margin:0 0 14px;overflow:hidden;}'
     + '.opl-lane .opl-hd{padding:10px 14px;margin:0;border-bottom:1px solid var(--border);}'
-    + '.opl-lane.w{box-shadow:inset 4px 0 0 var(--teal);}.opl-lane.c{box-shadow:inset 4px 0 0 var(--red);}.opl-lane.b{box-shadow:inset 4px 0 0 var(--amber);}'
+    + '.opl-lane.n{box-shadow:inset 4px 0 0 #1F7A8C;}.opl-lane.w{box-shadow:inset 4px 0 0 var(--teal);}.opl-lane.c{box-shadow:inset 4px 0 0 var(--red);}.opl-lane.b{box-shadow:inset 4px 0 0 var(--amber);}'
     + '.opl-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) auto auto;gap:8px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}'
     + '.opl-row:last-child{border-bottom:0;}.opl-who b{display:block;color:var(--navy);}.opl-sub{color:var(--text-muted);font-size:12.5px;}'
     + '.opl-what{font-size:13.5px;}.opl-t{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-muted);white-space:nowrap;}.opl-t.long{color:var(--red);font-weight:700;}'
@@ -494,7 +494,11 @@
     if(owner()) lanes.wait.forEach(r => { if(r.owner && !r.mine){ const t = team[r.owner] || (team[r.owner] = { n:0, oldest:null }); t.n++; if(r.since && (t.oldest == null || r.since < t.oldest)) t.oldest = r.since; } });
     const batches = {};
     lanes.batch.filter(scope).forEach(r => { const k = batchOf(r.it, r); (batches[k] = batches[k] || []).push(r); });
-    return { now, me:m, wait:lanes.wait.filter(scope).sort(byWait), care:lanes.care.filter(scope).sort(byWait), batches, old:lanes.old.filter(scope).sort(byWait), hidden:lanes.hide.length, team };
+    /* her word 11-23: possible new families pop to the top, in their own lane above everything else */
+    const isNf = r => lc(r.it.kind) === 'new_family_call';
+    const newfam = lanes.wait.filter(r => isNf(r) && scope(r)).sort(byWait);
+    lanes.wait = lanes.wait.filter(r => !isNf(r));
+    return { now, me:m, newfam, wait:lanes.wait.filter(scope).sort(byWait), care:lanes.care.filter(scope).sort(byWait), batches, old:lanes.old.filter(scope).sort(byWait), hidden:lanes.hide.length, team };
   }
   function renderLanes(wrap){
     if(!document.getElementById('opbCss')){ const t = document.createElement('div'); t.innerHTML = CSS; document.head.appendChild(t.firstChild); }
@@ -510,6 +514,7 @@
     if(owner()) h += '<div class="field-note" style="margin:0 0 10px;"><b>New:</b> a calmer board. One short Today list, one row per person, everything else folded. '
       + '<button class="linklike" style="font:inherit;" onclick="OPB.todayTry(true)">Try the calmer board</button> (only you see it)</div>';
     if(W.CT) h += W.CT.strip();   /* card conversations (card-threads.js): For you on top */
+    h += '%%OPL_NEWFAM%%';
     h += weekHtml(now);
     const oldestW = M.wait.length ? waited(M.wait[0].since, now) : '';
     h += '<div class="opl-tiles">'
@@ -519,6 +524,7 @@
     if(owner()) h += '<div class="field-note" style="margin:-6px 0 12px;">Showing ' + (L.who === 'all' ? 'everyone\'s work' : 'yours and nobody\'s') + ' · <button class="linklike" style="font:inherit;" onclick="OPB.lanesWho(\'' + (L.who === 'all' ? 'mine' : 'all') + '\')">' + (L.who === 'all' ? 'Show only mine and nobody\'s' : 'Show everyone') + '</button></div>';
     const lane = (key, cls, title, small, list) => '<div class="opl-lane ' + cls + '" id="' + key + '"><div class="opl-hd"><h3>' + esc(title) + '</h3><small>' + esc(small) + '</small></div>'
       + (list.length ? list.map(r => laneRow(r, now)).join('') : '<div class="opl-none">' + (key === 'oplWait' ? 'Nobody is waiting on a call or text back.' : 'Nothing here right now.') + '</div>') + '</div>';
+    h = h.replace('%%OPL_NEWFAM%%', M.newfam.length ? lane('oplNew', 'n', 'Possible new families', 'Calls the AI read as a family asking about care. Make a lead, or say who it was. Longest wait first.', M.newfam) : '');
     h += lane('oplWait', 'w', 'Waiting on us', 'Called, texted or promised a call back. Longest wait first. Follow-ups rows close themselves when the office line calls or texts back.', M.wait);
     h += lane('oplCare', 'c', 'Care today', 'Shift-note flags, health news, a call before a first visit, an open shift soon', M.care);
     h += '<div class="opl-lane b" id="oplBatch"><div class="opl-hd"><h3>Batches</h3><small>Same kind of work, done in one sitting</small></div>'
@@ -564,7 +570,7 @@
     M.care.forEach(r => today.push(r));
     /* health from a call comes up to Today from wherever it was folded */
     const pull = list => (list || []).filter(r => { if(!careCall(r.it)) return true; r.lane = 'care'; r.carecall = true; today.push(r); return false; });
-    pull(M.wait).forEach(r => (todayOf(r.it, 'wait', now) === 'today' ? today : oldp).push(r));
+    pull(M.newfam.concat(M.wait)).forEach(r => (todayOf(r.it, 'wait', now) === 'today' ? today : oldp).push(r));
     Object.keys(M.batches).forEach(k => { M.batches[k] = pull(M.batches[k]); if(!M.batches[k].length) delete M.batches[k]; });
     M.old = pull(M.old);
     return Object.assign(M, { groups:todayGroups(today, now), oldp });

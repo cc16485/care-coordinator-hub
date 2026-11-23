@@ -159,6 +159,30 @@ async()=>{
   ok('same family: says check it', L.toasts.some(m=>/Check this one before it is saved\./.test(m)), L.toasts);
   ok('same family: card still open', it2.status==='open');
   closeModal('leadModalBackdrop');
+
+  /* 11-23 her ask: make the lead by itself when we talked with a family and it is obvious (switch auto_lead_from_calls_live) */
+  window.__same=null;
+  const A=(id,s,ab,contact,at)=>({ message_id:id, call_type:'new_client_inquiry', lead_id:null, read_at:at, call_at:at, seconds:s, who_name:null, caller:null, detail:{ summary:'A family asking about care for a parent.', contact_id:contact, answered_by:ab } });
+  window.__READ.unshift(A('msgAUTO01',300,'ghlSam','C201','2026-10-07T14:50:00Z'), A('msgAUTO02',40,'ghlSam','C202','2026-10-07T14:51:00Z'), A('msgAUTO03',300,'ghlKry','C203','2026-10-07T14:52:00Z'), A('msgAUTO04',300,'ghlSam','C204','2026-10-07T13:00:00Z'));
+  CallLead._state.at=0; const nLeads=DATA.leads.length; await CallLead.reconcile(); await until(()=>item('msgAUTO04'), 3000); if(!item('msgAUTO04')){ CallLead._state.at=0; await CallLead.reconcile(); } await CallLead.autoPass();
+  ok('auto: switch off, nothing made by itself', DATA.leads.length===nLeads && !item('msgAUTO01').auto_try, DATA.leads.length);
+  DATA.ops_settings.auto_lead_from_calls_live=true; DATA.ops_settings.auto_lead_from_calls_live_since='2026-10-07T14:00:00Z';
+  ok('auto: why not, for each', CallLead.autoWhy(item('msgAUTO02'),Date.now())==='short call or voicemail' && CallLead.autoWhy(item('msgAUTO03'),Date.now())==='not my card' && CallLead.autoWhy(item('msgAUTO04'),Date.now())==='from before the switch' && CallLead.autoWhy(item('msgAUTO01'),Date.now())==='',
+    ['msgAUTO01','msgAUTO02','msgAUTO03','msgAUTO04'].map(x=>CallLead.autoWhy(item(x),Date.now())));
+  await CallLead.autoPass(); await until(()=>!CallLead._state.working.msgAUTO01, 6000); await CallLead.reconcile();
+  const al=CallLead.leadFor('msgAUTO01');
+  ok('auto: a talked-with new family became a lead by itself', !!al && DATA.leads.length===nLeads+1, [nLeads, DATA.leads.length, CallLead.autoWhy(item('msgAUTO01'),Date.now()), item('msgAUTO01').auto_try, item('msgAUTO01').auto_note, localStorage.getItem('clAutoLock'), $('#leadModalBackdrop').classList.contains('open'), L.toasts.slice(-3)]);
+  ok('auto: signed by who took the call, marked as made by the Hub', al && al.filled_from_calls_by==='Samantha Troutman' && al.made_by_ai && al.made_by_ai.call==='msgAUTO01', al && [al.filled_from_calls_by, al.made_by_ai]);
+  ok('auto: counts as a lead made from a call (the what to expect text will go)', al && LeadRules.madeFromCall(al) && !!al.first_human_contact_at, al && [al.created_at, al.filled_from_calls_at, al.first_human_contact_at]);
+  ok('auto: its row closed, the others left', item('msgAUTO01').status==='done' && item('msgAUTO02').status==='open' && item('msgAUTO03').status==='open' && !item('msgAUTO02').auto_try && !item('msgAUTO03').auto_try);
+  ok('auto: the form never showed', !$('#leadModalBackdrop').classList.contains('open'));
+  /* the same family may already be in the Hub: left for a person, with the reason, tried once */
+  window.__READ.unshift(A('msgAUTO05',300,'ghlSam','C205','2026-10-07T14:55:00Z'));
+  window.__same={ leads:[{ lead:{ id:'L_r', first_name:'Ruth', last_name:'Old' }, why:['phone'] }], clients:[] };
+  CallLead._state.at=0; await CallLead.reconcile(); if(!item('msgAUTO05')){ CallLead._state.at=0; await CallLead.reconcile(); } await CallLead.autoPass(); await until(()=>item('msgAUTO05') && item('msgAUTO05').auto_note, 6000);
+  ok('auto: same family found, no lead, form closed, the reason on the card', DATA.leads.length===nLeads+1 && item('msgAUTO05').status==='open' && /same family may already be in the Hub/.test(item('msgAUTO05').auto_note||'') && !$('#leadModalBackdrop').classList.contains('open'), [DATA.leads.length, item('msgAUTO05')]);
+  window.__same=null; await CallLead.autoPass();
+  ok('auto: each card is tried once', DATA.leads.length===nLeads+1, [nLeads, DATA.leads.length, DATA.leads.map(l=>l.first_name)]);
   return R;
 }
 """
