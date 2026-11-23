@@ -70,6 +70,8 @@ OWNER = r"""async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const W=()=>document.getElementById('myWorkWrap').innerText;
   ok('until you try it, the three lanes are still the board', !!document.getElementById('oplWait') && !document.getElementById('optToday'));
+  { const lr=document.querySelector('#oplWait .opl-row[data-id="nf_2"]'), t=lr?lr.innerText:'';
+    ok('lanes (her 11-23 screenshot): a new family row says what they asked for and Make a lead, never "New family? Unknown caller"', /New caller/.test(t) && /overnight care for his wife/.test(t) && /Make a lead/.test(t) && !/Unknown caller/.test(t) && !/Call back/.test(t), t); }
   ok('owners see "Try the calmer board" on the lanes', /Try the calmer board/.test(W()), W().slice(0,300));
   OPB.todayTry(true); await sleep(200);
   ok('Try the calmer board draws Today and remembers it', !!document.getElementById('optToday') && !document.getElementById('oplWait') && localStorage.getItem('opbToday')==='1');
@@ -80,7 +82,7 @@ OWNER = r"""async()=>{
     /Today\s+9 people need you/.test(document.querySelector('#optToday .opt-hd').innerText.replace(/\s+/g,' ')) && JSON.stringify(ids())===JSON.stringify(['cn_1','cf_health','fu_3','nf_1','nf_2','fu_1']), [document.querySelector('#optToday .opt-hd').innerText, ids()]);
   ok('each Today row has exactly one button', [...document.querySelectorAll('#optToday > .opt-row')].every(r=>r.querySelectorAll('button').length===1));
   const nf=document.querySelector('.opt-row[data-id="nf_1"]').innerText;
-  ok('a new family row says what the caller asked for, not "New family?"', /looking for a caregiver one to two days a week\./.test(nf) && !/New family\?/.test(nf) && /New family/.test(nf) && /Call back/.test(nf), nf);
+  ok('a new family row says what the caller asked for, not "New family?"', /looking for a caregiver one to two days a week\./.test(nf) && !/New family\?/.test(nf) && /New family/.test(nf) && /Make a lead/.test(nf) && !/Call back/.test(nf), nf);
   ok('an unknown new caller is "New caller"', /New caller/.test(document.querySelector('.opt-row[data-id="nf_2"]').innerText));
   ok('a reply row shows the words that came in', /"Can the Thursday visit move to Friday\?"/.test(document.querySelector('.opt-row[data-id="fu_1"]').innerText));
   const hc=document.querySelector('.opt-row[data-id="cf_health"]');
