@@ -87,7 +87,8 @@
     if(k === 'coverage_outcome') return 'Was it covered?';
     if(k === 'confirm_times') return 'Confirm times';
     if(k === 'call_followup') return 'See the call';
-    if(k === 'reply_needed' || k === 'missed_call' || k === 'new_family_call' || k === 'family_call') return 'Call back';
+    if(k === 'new_family_call') return 'Make a lead';   /* her word 11-23: the card's Yes, lead / Not a lead, never only Call back */
+    if(k === 'reply_needed' || k === 'missed_call' || k === 'family_call') return 'Call back';
     if(k === 'step1_countersign') return 'Countersign';
     if(k === 'review') return 'Review';
     if(k === 'send_problem') return 'Fix the send';
@@ -462,9 +463,11 @@
     if(r.kind === 'approval') return '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(it.caregiver || 'Write-up') + '</b><span class="opl-sub">Caregiver</span></div>'
       + '<div class="opl-what">' + esc((it.level ? it.level + ': ' : '') + (it.reason || '')) + '</div><div class="opl-t">' + esc(waited(r.since, now)) + '</div>'
       + '<div class="opl-btns"><button class="primary" onclick="OPB.approvals()">Review</button></div></div>';
-    const who = /^\s*\(phone lead\)\s*$/i.test(String(it.about || '')) ? 'Name not on file' : (it.about || it.title || '');
+    const nf = lc(it.kind) === 'new_family_call';
+    let who = /^\s*\(phone lead\)\s*$/i.test(String(it.about || '')) ? 'Name not on file' : (it.about || it.title || '');
+    if(nf && /^unknown caller$/i.test(who)) who = 'New caller';   /* 11-23: a new family row says what they asked for, never "New family? Unknown caller" */
     const fu = lc(it.kind) === 'reply_needed';
-    const what = fu ? String(it.detail || it.title || '').replace(it.about ? new RegExp('^' + String(it.about).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*') : /^$/, '') :(it.about && it.title && it.about !== it.title) ? it.title : (it.detail || '');
+    const what = nf ? todayWhat(it) : fu ? String(it.detail || it.title || '').replace(it.about ? new RegExp('^' + String(it.about).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*') : /^$/, '') :(it.about && it.title && it.about !== it.title) ? it.title : (it.detail || '');
     const sub = [fu ? 'Called or texted' : WHO[r.who], r.owner && !r.mine ? (it.owner_name || name(r.owner)) : (!r.owner ? 'Nobody yet' : '')].filter(Boolean).join(' · ');
     const long = r.since && now - r.since > 12 * HOUR;
     let h = '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + (r.dupe ? ' · also on a call card' : '') + '</span></div>'

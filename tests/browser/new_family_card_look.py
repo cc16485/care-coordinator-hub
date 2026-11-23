@@ -17,6 +17,8 @@ STUB = r"""
     { message_id:'msgKRY008', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:20:00Z', call_at:'2026-10-07T14:10:00Z', seconds:240, who_name:null, caller:'Kay K.', detail:{ summary:'Son asking about help for his dad.', answered_by:'ghlKry' } },
     { message_id:'msgSPAM07', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:05:00Z', call_at:'2026-10-07T14:00:00Z', seconds:90, who_name:null, caller:'Sales G.', detail:{ summary:'Says they need care.' } },
     { message_id:'msgSAME05', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:55:00Z', call_at:'2026-10-07T14:52:00Z', seconds:200, who_name:null, caller:'Ruth O.', detail:{ summary:'Asking about care again.' } },
+    { message_id:'msgVM0001', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:36:00Z', call_at:'2026-10-07T14:36:00Z', seconds:22, who_name:null, caller:null, detail:{ summary:'Jade left a short voicemail asking about care for her grandfather.', contact_id:'C88' } },
+    { message_id:'msgCB0002', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:45:00Z', call_at:'2026-10-07T14:44:00Z', seconds:397, who_name:null, caller:'Jade', detail:{ summary:'Krystal returned the voicemail from Jade, asking about care for her grandfather in Springfield.', contact_id:'C88', answered_by:'ghlKry' } },
     { message_id:'msgOLD003', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-03T15:00:00Z', call_at:'2026-10-03T14:00:00Z', seconds:300, who_name:null, caller:'Old C.', detail:{ summary:'Three days ago.' } },
     { message_id:'msgCG0002', call_type:'caregiver', lead_id:null, read_at:'2026-10-07T14:31:00Z', call_at:'2026-10-07T14:30:00Z', seconds:40, who_name:'Ann Caregiver', caller:'Ann C.', detail:{ summary:'Caregiver running late.' } }];
   (0,eval)(`sb={ from:(t)=>{ const p={ select(){return p;}, gte(){return p;}, in(){return p;}, not(){return p;}, order(){return p;}, limit(){return p;},
@@ -137,6 +139,14 @@ async()=>{
   ok('card closed: Made a lead', await until(()=>it.status==='done' && /Made a lead: Linda Parker/.test(it.close_note||'')), it);
   ok('toast says what is next', L.toasts.some(m=>/Linda Parker is a lead\. Next: book the home visit\./.test(m)), L.toasts);
   ok('still one read of the call', L.fn.filter(f=>f.action==='read'&&f.message_id==='msgNEW001').length===1, L.fn);
+
+  /* 11-23 (Jade): a voicemail, then our call back = one family, one card: the newest call */
+  ok('voicemail then call back: no card for the voicemail', !item('msgVM0001'), item('msgVM0001'));
+  ok('voicemail then call back: one card, the call back', item('msgCB0002') && item('msgCB0002').status==='open', item('msgCB0002'));
+  window.__READ.unshift({ message_id:'msgCB0003', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:58:00Z', call_at:'2026-10-07T14:57:00Z', seconds:120, who_name:null, caller:'Jade', detail:{ summary:'Jade called back with her mom.', contact_id:'C88' } });
+  CallLead._state.at=0; await CallLead.reconcile();
+  ok('a newer call from the same family closes the older card', item('msgCB0002').status==='done' && item('msgCB0002').close_note==='Same family as a later call' && item('msgCB0003') && item('msgCB0003').status==='open', [item('msgCB0002'), item('msgCB0003')]);
+  ok('calls with no contact are left alone', item('msgNEW001') && item('msgKRY008') && item('msgKRY008').status==='open');
 
   /* Same family found: the save stops for a person, the filled form shows */
   window.__same={ leads:[{ lead:{ id:'L_r', first_name:'Ruth', last_name:'Old' }, why:['phone'] }], clients:[] };

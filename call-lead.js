@@ -37,7 +37,7 @@
       try{
         const since = new Date(Date.now() - DAYS * 864e5).toISOString();
         const { data, error } = await sb.from('call_task_reading').select('message_id, call_type, lead_id, read_at, detail, call_at, seconds, who_name, caller').eq('channel', 'call').gte('call_at', since).order('read_at', { ascending: false }).limit(800);
-        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '', call_at: r.call_at || '', seconds: Number(r.seconds) || 0, who: r.who_name || r.caller || '', answered_by: (r.detail && r.detail.answered_by) || '' }; CL.readings = m; }
+        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '', call_at: r.call_at || '', seconds: Number(r.seconds) || 0, who: r.who_name || r.caller || '', answered_by: (r.detail && r.detail.answered_by) || '', contact: (r.detail && r.detail.contact_id) || '' }; CL.readings = m; }
         if(!CL.users){   /* GoHighLevel users {userId: {email, first}}, the list the call recorder keeps (app_data ghl_users) */
           const u = await sb.from('app_data').select('data').eq('key', 'ghl_users').maybeSingle();
           const row = u && u.data && Array.isArray(u.data.data) ? u.data.data.find(x => x && x.id === 'people') : null;
@@ -502,14 +502,19 @@
         if(typeof DATA === 'undefined') return;
         DATA.ops_items = DATA.ops_items || [];
         const now = new Date().toISOString(), changed = [];
+        /* 11-23 (Jade): a voicemail and then our call back are ONE family. Only the newest call from the same contact keeps a
+           card (it has what was said), so the board never shows the same family twice, once as "Unknown caller". */
+        const newest = {};
+        Object.keys(CL.readings).forEach(id => { const r = CL.readings[id];
+          if(r && r.type === 'new_client_inquiry' && r.contact && okId(id) && (!newest[r.contact] || String(r.call_at) > String(CL.readings[newest[r.contact]].call_at))) newest[r.contact] = id; });
         Object.keys(CL.readings).forEach(id => {
           const r = CL.readings[id]; if(!r || r.type !== 'new_client_inquiry' || !okId(id)) return;
           const itId = NF + id, it = DATA.ops_items.find(x => x && x.id === itId);
-          const l = leadFor(id), nl = notLead(id);
-          if(l || nl){
+          const l = leadFor(id), nl = notLead(id), later = r.contact && newest[r.contact] !== id ? newest[r.contact] : '';
+          if(l || nl || later){
             if(it && it.status === 'open'){
-              it.status = 'done'; it.closed_at = now; it.closed_by = (l ? (l.filled_from_calls_by || '') : nl.by) || me() || 'system';
-              it.close_note = l ? 'Made a lead: ' + leadName(l) : 'Not a lead' + (nl.reason ? ' (' + NOT_REASONS[nl.reason] + ')' : '');
+              it.status = 'done'; it.closed_at = now; it.closed_by = (l ? (l.filled_from_calls_by || '') : nl ? nl.by : '') || me() || 'system';
+              it.close_note = l ? 'Made a lead: ' + leadName(l) : nl ? 'Not a lead' + (nl.reason ? ' (' + NOT_REASONS[nl.reason] + ')' : '') : 'Same family as a later call';
               if(typeof opsLog === 'function') opsLog(it, it.close_note);
               changed.push(it);
             }

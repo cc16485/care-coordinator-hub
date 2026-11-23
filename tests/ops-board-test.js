@@ -20,6 +20,7 @@ ck('who: applicant, lead, family, caregiver, office',
 ck('when: yesterday is Late, tonight is Today, tomorrow is Later, parked is Later, no due day is Today',
   B.whenOf({ due:iso(now - D) }, now) === 'late' && B.whenOf({ due:iso(now + 3 * 36e5) }, now) === 'today' && B.whenOf({ due:iso(now + D) }, now) === 'later'
   && B.whenOf({ due:iso(now - D) }, now, true) === 'later' && B.whenOf({}, now) === 'today');
+ck('a new family row says Make a lead (her word 11-23), a missed call still Call back', B.doWord({ kind:'new_family_call', owner:'a' }) === 'Make a lead' && B.doWord({ kind:'missed_call', owner:'a' }) === 'Call back');
 ck('Do it says what you will do', B.doWord({ kind:'care_note', owner:'a' }) === 'Read the note' && B.doWord({ kind:'coverage', owner:'a' }) === 'Find cover'
   && B.doWord({ kind:'step1_countersign', owner:'a' }) === 'Countersign' && B.doWord({ kind:'request' }) === 'Take a look' && B.doWord({ kind:'request', owner:'a' }) === 'Open');
 const old = { status:'open', kind:'call_followup', id:'cf_1', due:iso(now - 8 * D) };
