@@ -1635,6 +1635,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-clientgoals"><div id="cgoNewClients"></div><div id="cgoWrap"></div></section>
     <section class="tabpanel" id="tab-myweek"><div id="mwWrap"></div></section><!-- 2026-11-17: My Week (my-week.js) -->
     <section class="tabpanel" id="tab-howto"><div id="htWrap"></div></section><!-- 2026-11-13: How-to for care coordinators (howto.js) -->
+    <section class="tabpanel" id="tab-myinterviews"><div id="mivWrap"></div></section><!-- 2026-11-23: My interviews, each interviewer's own interview calendar (my-interviews.js) -->
     <section class="tabpanel" id="tab-cctraining"><div id="ctWrap"></div></section><!-- 2026-11-14: Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) -->
 
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
@@ -7647,6 +7648,7 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
+<script src="my-interviews.js?v=1"></script><!-- 2026-11-23: My interviews (every interviewer, like Katlin's calendar) -->
 <script src="katlin-calendar.js?v=4"></script><!-- 2026-11-18: Katlin's calendar -->
 <script src="katlin-page.js?v=11"></script>
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
@@ -8338,7 +8340,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['myweek','owneroverview','ownersinbox','kpcal','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carematch','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials','videos','docfolders'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['myweek','owneroverview','ownersinbox','kpcal','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','myinterviews','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carematch','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials','videos','docfolders'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8359,7 +8361,10 @@ const CC_SUBTABS = {
     /* 2026-11-13 (her ask): the care coordinators' How-to, one pill with its own sub tabs inside (howto.js) */
     { t:'howto', l:'How-to', i:'i-book' },
     /* 2026-11-14 (her ask): Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) */
-    { t:'cctraining', l:'Coordinator Training', i:'i-grad' } ],
+    { t:'cctraining', l:'Coordinator Training', i:'i-grad' },
+    /* 2026-11-23 (her ask): "Make samantha and krystals video interview setup like katlins": each interviewer's own
+       interview calendar with Join video and About the applicant (my-interviews.js; only interviewers and owners see it) */
+    { t:'myinterviews', l:'My interviews', i:'i-calendar' } ],
   /* 2026-11-15 (her ask, "move this into the marketing material tab"): Videos & Photos lives inside Marketing Materials */
   mktgrp:[ { t:'materials', l:'Marketing Materials', i:'i-book' }, { t:'videos', l:'Videos & Photos', i:'i-video' } ],
 };
@@ -8463,7 +8468,8 @@ function ccRenderSub2(tab){
   if(!parent){ bar.classList.remove('on'); bar.innerHTML=''; return; }
   localStorage.setItem('cch_lastsub_'+parent, tab);
   /* My Desk shows only for the people it is switched on for (desk.js) */
-  bar.innerHTML = CC_SUBTABS[parent].filter(function(k){ return k.t!=='mydesk' || k.t===tab || (typeof dkAllowed==='function' && dkAllowed()); }).map(function(k){
+  bar.innerHTML = CC_SUBTABS[parent].filter(function(k){ if(k.t==='myinterviews') return k.t===tab || (window.MIV && MIV.allowed());
+    return k.t!=='mydesk' || k.t===tab || (typeof dkAllowed==='function' && dkAllowed()); }).map(function(k){
     return '<div class="fpill2'+(k.t===tab?' active':'')+'" data-tab="'+k.t+'" onclick="switchTab(\''+k.t+'\')">'
          + '<svg class="navi" aria-hidden="true"><use href="icons.svg#'+k.i+'"/></svg> '+k.l+'</div>';
   }).join('')
@@ -8773,7 +8779,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   inbox:'Inbox', comms:'Communication',
-  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', cctraining:'Coordinator Training', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', cctraining:'Coordinator Training', myinterviews:'My interviews', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Scheduling', teambuilder:'Schedule planner', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
@@ -9036,6 +9042,7 @@ function renderActiveTab(){
   try{ if(window.OIX) OIX.pillSync(); }catch(e){}
   if(activeTab==='ownersinbox' && window.OIX) OIX.render();
   try{ if(window.KP) KP.pillSync(); }catch(e){}
+  try{ if(window.MIV) MIV.pillSync(); }catch(e){}   /* 2026-11-23: My interviews pill, interviewers and owners only */
   if(window.KP && KP.isKp(activeTab)) KP.render(activeTab);
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
   if(activeTab==='trainhub') trainhubOpen();
@@ -9097,6 +9104,7 @@ function renderActiveTab(){
   if(activeTab==='howto' && window.HT) HT.render();
   if(activeTab==='myweek' && window.MW) MW.render('mwWrap');
   if(activeTab==='cctraining' && window.CTR) CTR.render();
+  if(activeTab==='myinterviews' && window.MIV) MIV.render();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   /* 2026-11-04 Offers inside Onboarding: an old link to Offers (not the offer form) opens Onboarding's Offer queue */
