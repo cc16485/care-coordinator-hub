@@ -66,7 +66,7 @@ function world(opts = {}) {
   ck('an empty name in Settings means no label at all', X.btAfternoonName('2026-10-02T22:00:00Z', X.btAfternoonRule({ afternoon_interviews: { from: '14:00', name: '' } })) === '');
   // ---- interviews on a day ----
   const bookings = [
-    { id: 'b1', applicant_id: 'a1', starts_at: '2026-10-02T19:30:00Z', status: 'booked' },
+    { id: 'b1', applicant_id: 'a1', starts_at: '2026-10-02T19:30:00Z', status: 'booked', video: true },
     { id: 'b2', applicant_id: 'a2', starts_at: '2026-10-02T14:00:00Z', status: 'attended' },
     { id: 'b3', applicant_id: 'a3', starts_at: '2026-10-02T15:00:00Z', status: 'noshow' },
     { id: 'b4', applicant_id: 'a4', starts_at: '2026-10-02T16:00:00Z', status: 'cancelled' },
@@ -107,6 +107,9 @@ function world(opts = {}) {
   ck('Today: no-show and done chips', />no-show</.test(html) && />done</.test(html));
   ck('Today: tapping an interview opens the applicant; an assessment opens its record', /btOpenApplicant\('a1'\)/.test(html) && /btOpenAssessment\(0\)/.test(html));
   ck('Today: assessment rows say address and who, or that they are not on file', /1 Elm St, Nixa · with Krystal/.test(html) && /address not on file · who is going is not on file/.test(html), html);
+  { const rows = html.split('hero-row').slice(1).filter((r) => /btOpenApplicant/.test(r));
+    const vRow = rows.find((r) => /Ava Afternoon/.test(r)), pRow = rows.find((r) => !/Ava Afternoon/.test(r));
+    ck('Today (11-25): a video booking says video, an in-person one says in person (it used to say in person for all)', /🎥 Video interview/.test(vRow || '') && !/In person/.test(vRow || '') && /🏢 In person at the office/.test(pRow || ''), rows); }
   const ivq = W.q.find((s) => s.name === 'interview_bookings');
   ck('Today: the interview query asks a window around the Chicago day (and the page filters to the day)', ivq && ivq.f.some((f) => f[0] === 'gte') && ivq.f.some((f) => f[0] === 'lt'), ivq);
 

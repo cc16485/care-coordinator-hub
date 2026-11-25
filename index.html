@@ -11772,6 +11772,8 @@ async function heroLoadShifts(){
    (care_assessments: a date, the address, who is going) and a booking made on
    the GHL "New Client Assessment" calendar (the inquiry's assessment_at, sent
    as words in Chicago time). The same family is listed once.
+   Each row says video or in person from interview_bookings.video (2026-11-25, Samantha: "interviews in the afternoon
+   look like in person but are actually video"; it used to say in person for all).
    The afternoon rule is business config: ops_settings.afternoon_interviews
    {from:'14:00', name:'Samantha'}, edited in Settings, with these defaults
    until somebody saves it. Before the cutoff an interview gets no name. */
@@ -11825,6 +11827,7 @@ function btInterviewsOn(day, bookings, applicants, rule){
       return { id:b.id, applicant_id:b.applicant_id, min:p.min,
         name: ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant',
         status: b.status==='attended' ? 'done' : b.status==='noshow' ? 'no-show' : 'booked',
+        video: b.video === true,
         who: btAfternoonName(b.starts_at, rule) }; })
     .sort((x, y)=>(x.min ?? 9999) - (y.min ?? 9999));
 }
@@ -11893,7 +11896,7 @@ function renderTodayBooked(){
     const rows = btInterviewsOn(day, BT_IV.bookings, BT_IV.applicants, btAfternoonRule(DATA.ops_settings));
     iv = card('🧑‍💼', 'Interviews today ('+rows.length+')', 'var(--navy)', rows.length
       ? rows.map(r=>'<div class="hero-row" onclick="btOpenApplicant(\''+esc(r.applicant_id)+'\')"><div class="m"><b>'+esc(btTime(r.min))+'</b> · '+esc(r.name)
-          +btStatusChip(r.status)+btWhoChip(r.who)+'<div class="sub">In person at the office</div></div><div class="go">Open →</div></div>').join('')
+          +btStatusChip(r.status)+btWhoChip(r.who)+'<div class="sub">'+(r.video ? '🎥 Video interview' : '🏢 In person at the office')+'</div></div><div class="go">Open →</div></div>').join('')
       : '<div class="field-note">No interviews booked today.</div>');
   }
   let as;
@@ -11915,7 +11918,7 @@ async function btLoadInterviews(){
   if(BT_IV_LOADING) return; BT_IV_LOADING = true;
   try{
     const day = btChiToday(), mid = Date.parse(day+'T00:00:00Z');
-    const b = await sb.from('interview_bookings').select('id,applicant_id,starts_at,status,coordinator_id')
+    const b = await sb.from('interview_bookings').select('id,applicant_id,starts_at,status,coordinator_id,video')
       .in('status', ['booked','attended','noshow'])
       .gte('starts_at', new Date(mid - 864e5).toISOString()).lt('starts_at', new Date(mid + 2*864e5).toISOString()).order('starts_at');
     if(b.error) throw b.error;
