@@ -7639,7 +7639,7 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
-<script src="my-interviews.js?v=1"></script><!-- 2026-11-23: My interviews (every interviewer, like Katlin's calendar) -->
+<script src="my-interviews.js?v=2"></script><!-- 2026-11-23: My interviews (every interviewer, like Katlin's calendar) -->
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=11"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=3"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="profile-cards.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=2"></script>
@@ -24015,16 +24015,20 @@ function ivqRender(){
     return;
   }
 
-  const dayLabel = d => d.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric'});
-  const timeLabel = d => d.toLocaleTimeString('en-US',{hour:'numeric', minute:'2-digit'});
-  const isToday = d => d.toDateString() === new Date().toDateString();
+  /* 2026-11-25 (her ask, "it needs to show her day/time in Vietnam"): days and times are Missouri's on every computer, and
+     someone whose computer is elsewhere (Katlin in Vietnam) also sees their own day and time on each row (MIV.localSay) */
+  const IVTZ = 'America/Chicago';
+  const dayLabel = d => d.toLocaleDateString('en-US',{weekday:'long', month:'short', day:'numeric', timeZone:IVTZ});
+  const timeLabel = d => d.toLocaleTimeString('en-US',{hour:'numeric', minute:'2-digit', timeZone:IVTZ});
+  const isToday = d => d.toLocaleDateString('en-CA',{timeZone:IVTZ}) === new Date().toLocaleDateString('en-CA',{timeZone:IVTZ});
+  const ivLocal = d => { const x = (window.MIV && typeof MIV.localSay==='function') ? MIV.localSay(d.getTime()) : ''; return x ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="Your own day and time">'+esc(x)+'</span>' : ''; };
 
   const row = (b, overdue) => {
     const a = IVQ_APP[b.applicant_id] || {};
     const d = new Date(b.starts_at);
     const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
-      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(overdue && !isToday(d) ? d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+timeLabel(d) : timeLabel(d))+'</span>'
+      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(overdue && !isToday(d) ? d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:IVTZ})+', '+timeLabel(d) : timeLabel(d))+'</span>' + ivLocal(d)
       /* waiting on an outcome: how long, red from 3 days (2026-11-03) */
       + (overdue ? (()=>{ const n=Math.floor((Date.now()-d.getTime())/864e5); return n>=1 ? '<span class="tag-chip" style="background:'+(n>=3?'#FEE2E2;color:#B91C1C':'#FEF3C7;color:#92400E')+';">'+n+' day'+(n===1?'':'s')+' ago, no outcome yet</span>' : ''; })() : '')
       + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
@@ -24061,7 +24065,7 @@ function ivqRender(){
   }
   if(upcoming.length){
     const byDay = new Map();
-    upcoming.forEach(b=>{ const d=new Date(b.starts_at); const k=d.toDateString();
+    upcoming.forEach(b=>{ const d=new Date(b.starts_at); const k=d.toLocaleDateString('en-CA',{timeZone:IVTZ});
       if(!byDay.has(k)) byDay.set(k,{label:(isToday(d)?'Today':dayLabel(d)), items:[]});
       byDay.get(k).items.push(b); });
     html += [...byDay.values()].map(day =>

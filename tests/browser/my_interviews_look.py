@@ -61,7 +61,7 @@ async()=>{
   ok('only her own interviews', !/Ownersfake|Eveningfake|Sam O\.|Kat E\./.test(txt()), txt());
   const j=document.querySelector('#mivWrap .mv-iv a.mv-join');
   ok('Join video opens her own link in a new tab and is lit (10 minutes before)', j && j.href==='https://meet.google.com/kry-kry-kry' && j.target==='_blank' && j.classList.contains('live') && /Join video now/.test(j.innerText), j && j.outerHTML);
-  ok('the bar shows the next interview with Join', /Next: Today 10:00 AM with Rosa F\./.test(document.querySelector('#mivWrap .mv-bar').innerText) && !!document.querySelector('#mivWrap .mv-bar a.mv-join'), document.querySelector('#mivWrap .mv-bar').innerText);
+  ok('the bar shows the next interview with Join', /Next: Today 10:00 AM Missouri with Rosa F\./.test(document.querySelector('#mivWrap .mv-bar').innerText) && !!document.querySelector('#mivWrap .mv-bar a.mv-join'), document.querySelector('#mivWrap .mv-bar').innerText);
   ok('her video room link is shown', /Your video room: meet\.google\.com\/kry-kry-kry/.test(txt()));
   ok('the in-person interview says In person at the office', /In person at the office/.test(txt()) && document.querySelectorAll('#mivWrap .mv-iv a.mv-join').length===1);
   MIV.toggle('iv:b1'); await sleep(50);
@@ -89,6 +89,18 @@ async()=>{
   await asWho('someone@mo-care.com','Some One',false);
   switchTab('mywork'); await sleep(200); MIV.pillSync(); await sleep(100);
   ok('someone who is not an interviewer does not see the pill', !document.querySelector('#fsub2 [data-tab="myinterviews"]'));
+  ok('a Missouri computer shows no second clock', !/in Vietnam|your time/.test(txt()));
+  ok('reads the interviewers, their bookings and the applications', ['coordinators','interview_bookings','job_applicants'].every(t=>window.__q.includes(t)), window.__q);
+  ok('nothing written', window.__w.length===0, window.__w);
+  return R;
+}
+"""
+T2 = r"""
+async()=>{
+  const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+  const $=id=>document.getElementById(id), txt=()=>($('mivWrap')||{}).innerText||'';
+  const asWho=async(email,name,owner)=>{ (0,eval)(`ME={ email:'${email}', name:'${name}', shift:'day' };`); (0,eval)('ccIsOwner=function(){ return '+(owner?'true':'false')+'; }');
+    MIV._s.coords=null; MIV._s.who=''; MIV._s.list=null; MIV._s.loadedFor=''; MIV.pillSync(); await sleep(150); };
   /* 2026-11-25 (her ask): Katlin's page is gone; her interviews sit with everyone's on the Interviews tab, and My interviews is hers */
   await asWho('katlin@mo-care.com','Katlin Fake',false);
   switchTab('mywork'); await sleep(300); MIV.pillSync(); await sleep(100);
@@ -99,19 +111,30 @@ async()=>{
   switchTab('interviews'); await ivqLoad(); await sleep(100);
   const iv=($('ivqList')||{}).innerText||'';
   ok('the Interviews tab lists her interview with everyone else\'s, named with Katlin', /Kat Eveningfake/.test(iv) && /with Katlin/.test(iv) && /Rosa Fakeapplicant/.test(iv) && /with Krystal/.test(iv) && /Sam Ownersfake/.test(iv), iv.slice(0,900));
-  ok('reads the interviewers, their bookings and the applications', ['coordinators','interview_bookings','job_applicants'].every(t=>window.__q.includes(t)), window.__q);
-  ok('nothing written', window.__w.length===0, window.__w);
+  /* her ask 2026-11-25: "it needs to show her day/time in Vietnam" */
+  ok('each of her interviews shows Missouri time and her Vietnam day and time', /6:00 PM Missouri/.test(txt()) && /Thu, Nov 19, 7:00 AM in Vietnam/.test(txt()), txt().slice(0,700));
+  ok('the top says what time it is in both places', /Right now it is .* in Missouri and .* in Vietnam/.test(txt()), txt().slice(0,400));
+  ok('the Interviews tab shows Missouri times with her Vietnam day and time', /6:00 PM/.test(iv) && /Thu, Nov 19, 7:00 AM in Vietnam/.test(iv) && /Wednesday, Nov 18|Today/.test(iv), iv.slice(0,900));
   return R;
 }
 """
 with sync_playwright() as pw:
-    b, pg, errs = g['page'](pw, '2026-11-18T09:50:00-06:00')
+    b, pg, errs = g['page'](pw, '2026-11-18T09:50:00-06:00', tz='America/Chicago')
     pg.evaluate(SETUP)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
         pg.evaluate("async()=>{ (0,eval)(\"ME={ email:'krystal@mo-care.com', name:'Krystal Fake', shift:'day' };\"); (0,eval)('ccIsOwner=function(){return false;}'); MIV._s.coords=null; MIV._s.who=''; MIV._s.list=null; MIV._s.loadedFor=''; switchTab('myinterviews'); await new Promise(r=>setTimeout(r,400)); MIV.toggle('iv:b1'); }"); pg.wait_for_timeout(300)
         pg.locator('#mivWrap').screenshot(path=os.path.join(SHOTS, 'my-interviews.png'))
+    b.close()
+    b, pg, errs2 = g['page'](pw, '2026-11-18T09:50:00-06:00')   # Katlin's computer, in Vietnam
+    pg.evaluate(SETUP)
+    R += pg.evaluate(T2); R.append(['PASS' if not errs2 else 'FAIL', 'no page errors (Vietnam computer)', errs2[:3]])
+    if SHOTS:
+        pg.evaluate("async()=>{ switchTab('myinterviews'); await new Promise(r=>setTimeout(r,400)); MIV.pick('2026-11-18'); }"); pg.wait_for_timeout(300)
+        pg.locator('#mivWrap').screenshot(path=os.path.join(SHOTS, 'katlin-my-interviews.png'))
+        pg.evaluate("async()=>{ switchTab('interviews'); await ivqLoad(); }"); pg.wait_for_timeout(300)
+        pg.locator('#ivqList').screenshot(path=os.path.join(SHOTS, 'interviews-tab-vietnam.png'))
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
