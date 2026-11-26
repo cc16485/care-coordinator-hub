@@ -34,8 +34,8 @@ def serve(route):
     p = (ROOT / url.split('http://teamwork.local/', 1)[1].split('?')[0].split('#')[0])
     if not p.is_file(): return route.fulfill(status=404, body='')
     route.fulfill(status=200, body=p.read_bytes(), content_type=MIME.get(p.suffix, 'application/octet-stream'))
-def page(pw, when, w=1280):
-    b = pw.chromium.launch(); cx = b.new_context(viewport={'width': w, 'height': 900}, timezone_id='Asia/Ho_Chi_Minh'); pg = cx.new_page()
+def page(pw, when, w=1280, tz='Asia/Ho_Chi_Minh'):
+    b = pw.chromium.launch(); cx = b.new_context(viewport={'width': w, 'height': 900}, timezone_id=tz); pg = cx.new_page()
     pg.clock.install(time=when); pg.clock.resume()
     pg.route('**/*', serve)
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
