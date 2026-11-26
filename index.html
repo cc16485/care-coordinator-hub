@@ -24032,6 +24032,9 @@ function ivqRender(){
       /* waiting on an outcome: how long, red from 3 days (2026-11-03) */
       + (overdue ? (()=>{ const n=Math.floor((Date.now()-d.getTime())/864e5); return n>=1 ? '<span class="tag-chip" style="background:'+(n>=3?'#FEE2E2;color:#B91C1C':'#FEF3C7;color:#92400E')+';">'+n+' day'+(n===1?'':'s')+' ago, no outcome yet</span>' : ''; })() : '')
       + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
+      /* 2026-11-26 (Samantha: "not showing us video vs in person"): how this interview happens, from the booking itself */
+      + (b.video===true ? '<span class="tag-chip iv-how" style="background:#E6F0F8;color:#1F5E8C;" title="Video interview (Join from My interviews)">🎥 Video</span>'
+                        : b.video===false ? '<span class="tag-chip iv-how" style="background:#F3EEE4;color:#6E5A3A;" title="In person at the office">🏢 In person</span>' : '')
       /* 2026-11-19 (Samantha: "take Samantha name off of Katlin's interviews in the interview tab"): every booking names its
          real interviewer ("· with Katlin"), so the old afternoon label shows only on a booking with no interviewer */
       + (b.coordinator_id ? '' : btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings))))
@@ -24043,7 +24046,7 @@ function ivqRender(){
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
-      + (window.HREM && !overdue && a.phone ? HREM.ivBtn(b) : '')   /* 2026-11-02: Send reminder (2026-11-04: no history line under the row, her call) */
+      /* 2026-11-26 (Samantha: "remove send reminder from the interviews tab ... they already receive reminders"): no Send reminder here */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
       + (overdue ? '' :

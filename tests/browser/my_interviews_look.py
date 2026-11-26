@@ -114,6 +114,8 @@ async()=>{
   /* her ask 2026-11-25: "it needs to show her day/time in Vietnam" */
   ok('each of her interviews shows Missouri time and her Vietnam day and time', /6:00 PM Missouri/.test(txt()) && /Thu, Nov 19, 7:00 AM in Vietnam/.test(txt()), txt().slice(0,700));
   ok('the top says what time it is in both places', /Right now it is .* in Missouri and .* in Vietnam/.test(txt()), txt().slice(0,400));
+  const how=n=>{ const l=[...document.querySelectorAll('#ivqList [data-open-applicant]')].find(x=>x.innerText.includes(n)); const r=l&&l.parentElement; const t=r&&r.querySelector('.iv-how'); return t ? t.innerText : ''; };
+  ok('each row says Video or In person, from the booking', /Video/.test(how('Kat Eveningfake')) && /Video/.test(how('Rosa Fakeapplicant')) && /In person/.test(how('Pat Inpersonfake')), [how('Kat Eveningfake'), how('Rosa Fakeapplicant'), how('Pat Inpersonfake')]);
   ok('the Interviews tab shows Missouri times with her Vietnam day and time', /6:00 PM/.test(iv) && /Thu, Nov 19, 7:00 AM in Vietnam/.test(iv) && /Wednesday, Nov 18|Today/.test(iv), iv.slice(0,900));
   return R;
 }
