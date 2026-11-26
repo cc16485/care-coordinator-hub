@@ -47,7 +47,6 @@
   }
   function refresh() {
     try { if (typeof ivqLoad === 'function') ivqLoad(); } catch (e) { /* not on this page */ }
-    try { if (window.KPC && typeof KPC.ivRefresh === 'function') KPC.ivRefresh(); } catch (e) { /* no calendar */ }
   }
 
   async function open(applicantId) {

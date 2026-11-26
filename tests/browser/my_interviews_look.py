@@ -7,8 +7,8 @@ does not see the pill, and nothing is written. (python3 tests/browser/my_intervi
 import os, sys, pathlib
 from playwright.sync_api import sync_playwright
 HERE = pathlib.Path(__file__).resolve()
-src = (HERE.parent / 'katlin_page_look.py').read_text().split('with sync_playwright() as pw:')[0]
-g = {'__file__': str(HERE.parent / 'katlin_page_look.py')}; exec(src, g)
+src = (HERE.parent / 'hub_offline.py').read_text()
+g = {'__file__': str(HERE.parent / 'hub_offline.py')}; exec(src, g)
 SHOTS = os.environ.get('SHOTS')
 
 SETUP = r"""
@@ -89,6 +89,16 @@ async()=>{
   await asWho('someone@mo-care.com','Some One',false);
   switchTab('mywork'); await sleep(200); MIV.pillSync(); await sleep(100);
   ok('someone who is not an interviewer does not see the pill', !document.querySelector('#fsub2 [data-tab="myinterviews"]'));
+  /* 2026-11-25 (her ask): Katlin's page is gone; her interviews sit with everyone's on the Interviews tab, and My interviews is hers */
+  await asWho('katlin@mo-care.com','Katlin Fake',false);
+  switchTab('mywork'); await sleep(300); MIV.pillSync(); await sleep(100);
+  ok('there is no Katlin\'s page anywhere', !document.querySelector('[data-parent="katlingrp"]') && !$('tab-kpcal') && !window.KP && !window.KPC && !/Katlin's page|My page/.test(($('fsub2')||{}).innerText||''), ($('fsub2')||{}).innerText);
+  ok('Katlin gets My interviews like every interviewer', !!document.querySelector('#fsub2 [data-tab="myinterviews"]'));
+  switchTab('myinterviews'); await sleep(400); MIV.pick('2026-11-18'); await sleep(50);
+  ok('her evening video is on her My interviews with her own link', /Kat E\./.test(txt()) && !/Rosa F\./.test(txt()) && [...document.querySelectorAll('#mivWrap a.mv-join')].some(a=>a.href==='https://meet.google.com/kat-kat-kat'), txt().slice(0,600));
+  switchTab('interviews'); await ivqLoad(); await sleep(100);
+  const iv=($('ivqList')||{}).innerText||'';
+  ok('the Interviews tab lists her interview with everyone else\'s, named with Katlin', /Kat Eveningfake/.test(iv) && /with Katlin/.test(iv) && /Rosa Fakeapplicant/.test(iv) && /with Krystal/.test(iv) && /Sam Ownersfake/.test(iv), iv.slice(0,900));
   ok('reads the interviewers, their bookings and the applications', ['coordinators','interview_bookings','job_applicants'].every(t=>window.__q.includes(t)), window.__q);
   ok('nothing written', window.__w.length===0, window.__w);
   return R;
