@@ -7961,8 +7961,44 @@ function ckdStartHere(ppl){
   }
   return null;
 }
+/* BADGES TO MAIL (Samantha 2026-11-26: "make an email and list on the onboarding tab with the caregivers who need their badge
+   mailed, i dont want it to hold up things, but i want to keep track of them on a list to check off when we get around to it").
+   Everyone on the caregiver list who came in through an offer, is still active, and has no badge recorded. It never blocks
+   anything: Activate, approval and shifts do not read it. Checking someone off records the name and time (badge_mailed_at /
+   badge_mailed_by, the same fields as the old Finish button); Not needed records badge_not_needed. The Monday email to the
+   office (Staffing server, badge-weekly) reads the same list. */
+const badgeIsTest = g => /\(TRAINING\)|^(pat practice|test |fake |practice )/i.test(((g.first || '') + ' ' + (g.last || '')).trim()) || g.is_test === true;
+function badgeToMail(list){
+  return (list || []).filter(g => g && g.offer_id && !g.badge_mailed_at && !g.badge_not_needed && g.active !== false && g.axiscare_status_active !== false && !g.ended_at && !badgeIsTest(g))
+    .sort((a, b) => String(a.hire_date || '9').localeCompare(String(b.hire_date || '9')));
+}
+function badgeListHTML(){
+  const all = typeof caregivers !== 'undefined' && Array.isArray(caregivers) ? caregivers : [];
+  const due = badgeToMail(all);
+  const lately = all.filter(g => g && g.badge_mailed_at && Date.now() - new Date(g.badge_mailed_at).getTime() < 14 * 864e5)
+    .sort((a, b) => String(b.badge_mailed_at).localeCompare(String(a.badge_mailed_at)));
+  const nm = g => bgrEsc(((g.first || '') + ' ' + (g.last || '')).trim() || 'Someone');
+  const since = g => { const d = String(g.hire_date || '').slice(0, 10); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return ''; const n = Math.max(0, Math.floor((Date.now() - new Date(d + 'T12:00:00').getTime()) / 864e5)); return 'Added ' + obtDay(d) + (n ? ' · ' + n + ' day' + (n === 1 ? '' : 's') : ''); };
+  const row = g => '<li class="bdg-row"><span class="bdg-n">' + nm(g) + '</span><span class="bdg-d">' + since(g) + '</span>'
+    + '<span class="bdg-b"><button type="button" class="ckd-go" onclick="ckdBadgeMailed(\'' + bgrEsc(String(g.offer_id)) + '\',this)">Mailed</button>'
+    + '<button type="button" class="ckd-link" onclick="ckdBadgeNotNeeded(\'' + bgrEsc(String(g.offer_id)) + '\',this)">Not needed</button></span></li>';
+  return '<div class="bdg" id="badgeList"><div class="bdg-h"><b>Badges to mail (' + due.length + ')</b><span>Nothing waits on this. Check people off when the badge goes in the mail. A list goes to the office by email every Monday morning.</span></div>'
+    + (due.length ? '<ul class="bdg-ul">' + due.map(row).join('') + '</ul>' : '<div class="bdg-empty">Every badge is mailed. Nice.</div>')
+    + (lately.length ? '<div class="bdg-late">Mailed lately: ' + lately.slice(0, 8).map(g => nm(g) + ' (' + ckdDay(g.badge_mailed_at) + ')').join(', ') + '</div>' : '')
+    + '</div>';
+}
+async function ckdBadgeNotNeeded(offerId, btn){
+  const g = (typeof caregivers !== 'undefined' ? caregivers : []).find(x => String(x.offer_id) === String(offerId)); if(!g) return;
+  if(!(await ccConfirm('Take ' + (g.first || 'them') + ' off the badge list? Use this when they already have a badge or do not need one. This records your name and the time.'))) return;
+  if(btn) btn.disabled = true;
+  g.badge_not_needed = true; g.badge_not_needed_at = new Date().toISOString(); g.badge_not_needed_by = ((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || '');
+  const ok = await saveCaregivers();
+  if(!ok){ alert('Not saved. They are still on the badge list. Try again in a moment.'); delete g.badge_not_needed; delete g.badge_not_needed_at; delete g.badge_not_needed_by; if(btn) btn.disabled = false; return; }
+  renderCkd();
+}
 function ckdMoreHTML(L){
-  return ''
+  return badgeListHTML()
+    + ''
     + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
     +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
@@ -10928,7 +10964,7 @@ function wcYmdLabel(ymd){
 }
 const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof',
   /* 2026-10-21: the approved Level of Care and the badge travel with the person */
-  'care_level_approved', 'care_level_by', 'care_level_by_email', 'care_level_at', 'care_level_note', 'care_level_evidence', 'care_level_history', 'badge_mailed_at', 'badge_mailed_by', 'badge_not_needed', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
+  'care_level_approved', 'care_level_by', 'care_level_by_email', 'care_level_at', 'care_level_note', 'care_level_evidence', 'care_level_history', 'badge_mailed_at', 'badge_mailed_by', 'badge_not_needed', 'badge_not_needed_at', 'badge_not_needed_by', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
   'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names',
   /* SLICE 4: the audited Step 2 record travels with the person */
   'step2_sent_note', 'step2_resent_at', 'step2_resent_by', 'step2_msg', 'step2_done_how', 'step2_receipt', 'step2_verified_at', 'step2_verified_by', 'step2_checklist', 'step2_i9_s2_by', 'step2_i9_s2_at', 'step2_note', 'step2_still_open_at', 'step2_still_open_by', 'step2_still_open_task', 'step2_reminders', 'step2_history', 'step2_invite'];
@@ -13012,7 +13048,7 @@ window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAge
   offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
 window.obtQueue = obtQueue; window.obtOpenQueue = obtOpenQueue;   /* 2026-11-03 the Onboarding table's queues */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdBadgeNotNeeded = ckdBadgeNotNeeded; window.badgeToMail = badgeToMail; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
