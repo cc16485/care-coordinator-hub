@@ -130,6 +130,8 @@ async()=>{
   ok('...the VA path and intake show, with "check them with them on the call", and Enrolled Yes is picked', !!document.getElementById('vaiCard') && /came from the veterans page form/.test(H()) && [...document.querySelectorAll('#vaiCard .lb-btn-primary')].some(b=>b.textContent==='Yes') && document.getElementById('vai_best_time').value==='Afternoon');
   const nW=window.__log.writes.filter(x=>x.id==='web1').length; await openClient({ lead_id:'web1' }, 'summary'); await sleep(500);
   ok('...opening it again does not fill or save again', window.__log.writes.filter(x=>x.id==='web1').length===nW);
+  { const main=host().querySelector('.lw-main'), cards=[...main.children], nx=cards.findIndex(c=>c.classList.contains('lw-next')), st=cards.findIndex(c=>c.id==='vaiStrip');
+    ok('her "move the VA intake up": for a veteran the Veteran? question, the VA path and the intake come right after the Next box', nx>-1 && st===nx+1 && cards.findIndex(c=>c.id==='vaiCard')>st, [nx, st, cards.map(c=>c.id||c.className).slice(0,10)]); }
   /* Settings */
   switchTab('settings'); await sleep(300); vaiSetFill();
   ok('Settings → Leads: the VA intake switch says On (it was set for this test) and owners can change it', /On\./.test(document.getElementById('vaiSetNow').innerText));
