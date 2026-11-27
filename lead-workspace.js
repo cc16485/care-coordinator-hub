@@ -370,12 +370,17 @@
       + (l.what_to_expect_sent_at ? '<div class="field-note" style="margin-top:6px;">✓ What to expect text sent ' + esc(new Date(l.what_to_expect_sent_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })) + (l.what_to_expect_sent_by === 'automatic' ? ' (automatic)' : '') + '.</div>'
         : (DATA.ops_settings || {}).what_to_expect_text_live === true && R().madeFromCall(l) && !l.said_yes_at && !l.auto_msgs_stopped_at ? '<div class="field-note" style="margin-top:6px;">The what to expect text goes to ' + esc(callerFirst) + ' automatically (7 AM to 8 PM).</div>' : '')
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
+    /* 2026-11-27: the VA intake (va-intake.js, ops_settings.va_intake_live): a Veteran? question on every open lead, and for a veteran
+       the VA path and the whole intake. While it is off, the VA paperwork card as it was.
+       2026-11-27 (her "move the VA intake up"): for a veteran (or a veterans page lead) it sits right under the Next box, so it is
+       the first thing on the page after what to do now; for everyone else the Veteran? question stays where it was. */
+    const vaOn = !lost && window.VaIntake && VaIntake.showing(DATA.ops_settings || {}, typeof ccIsOwner === 'function' && ccIsOwner());
+    const vaUp = vaOn && (VaIntake.isVeteran(l) || !!VaIntake.fromForm(l));
+    if(vaUp) h += VaIntake.html(l);
     if(simple) h += quickHtml(l, ctx) + basics;   /* 2026-11-23: notes, people, who referred, right under the Next box; the Basics card after them */
     if(!lost) h += hintsHtml(l);   /* 2026-11-11: what the five program questions point to */
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
-    /* 2026-11-27: the VA intake (va-intake.js, ops_settings.va_intake_live): a Veteran? question on every open lead, and for a veteran
-       the VA path and the whole intake. While it is off, the VA paperwork card as it was. */
-    if(!lost && window.VaIntake && VaIntake.showing(DATA.ops_settings || {}, typeof ccIsOwner === 'function' && ccIsOwner())) h += VaIntake.html(l);
+    if(vaOn){ if(!vaUp) h += VaIntake.html(l); }
     else if(!lost && vaShows(l)) h += vaHtml(l);   /* 2026-11-11: VA paperwork, filled in over the phone */
     h = '<div class="lw-grid"><div class="lw-main">' + h + (simple ? '' : knowHtml(l, ctx, r)) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r, simple) + '</div>';
     host.innerHTML = h; host.style.display = '';
