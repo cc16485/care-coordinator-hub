@@ -47,7 +47,39 @@
   const SSN_LIKE = /(^|[^\d])(\d{3}[- ]\d{2}[- ]\d{4}|\d{9})(?!\d)/;
   const ssnLike = s => SSN_LIKE.test(String(s == null ? '' : s));
   function answer(l){ return String(((l && l.program_check) || {}).veteran || ''); }
-  function isVeteran(l){ return answer(l) === 'yes' || (l && l.funding_source === 'va'); }
+  /* 2026-11-27 (her "Yes, do that"): a lead from the veterans web page already told us who they are and whether the veteran is
+     enrolled. Its note (lead.interest_notes, written by the page) reads "VA COMMUNITY CARE. From the Veterans page. They said:
+     I'm the veteran. Veteran enrolled in VA health care: Yes. Where: 65803. Best time to call: Afternoon. ..." */
+  const VA_FORM = /^\s*VA COMMUNITY CARE\. From the Veterans page\./i;
+  function fromForm(l){
+    const t = String((l && l.interest_notes) || '');
+    if(!VA_FORM.test(t)) return null;
+    const grab = re => { const m = re.exec(t); return m ? m[1].trim() : ''; };
+    const who = grab(/They said:\s*([^.]*)\./i), en = grab(/enrolled in VA health care:\s*([^.]*)\./i).toLowerCase(), time = grab(/Best time to call:\s*([^.]*)\./i);
+    return {
+      who:/i'?m the veteran/i.test(who) ? 'self' : /caregiver/i.test(who) ? 'caregiver' : /helping/i.test(who) ? 'helper' : '',
+      enrolled:en === 'yes' ? 'yes' : en === 'no' ? 'no' : en === 'not sure' ? 'not_sure' : '',
+      best_time:/^any time$/i.test(time) ? '' : time,
+    };
+  }
+  /* what the form fills in, only where nothing is there yet. Returns the lines it filled (empty = nothing to do). */
+  function applyForm(l, today){
+    const f = fromForm(l); if(!f || (l.va_referral && l.va_referral.form_filled_at)) return [];
+    const v = data(l), filled = [], pc = Object.assign({}, l.program_check || {});
+    if(!pc.veteran){ pc.veteran = 'yes'; pc.by = 'the veterans page form'; pc.at = new Date().toISOString(); l.program_check = pc; filled.push('Veteran: yes'); }
+    if(f.enrolled && !v.enrolled){ v.enrolled = f.enrolled; filled.push('enrolled in VA health care: ' + { yes:'yes', no:'no', not_sure:'not sure' }[f.enrolled]); }
+    if(f.best_time && !v.best_time){ v.best_time = f.best_time; filled.push('best time to call: ' + f.best_time); }
+    if(f.who && !v.calling_for){ v.calling_for = 'veteran'; filled.push('calling for: the veteran'); }
+    if(f.who === 'self'){
+      if(!l.relationship){ l.relationship = 'self'; filled.push('the caller is the veteran'); }
+      if(!l.client_first_name && !l.client_last_name && (l.first_name || l.last_name)){ l.client_first_name = l.first_name || ''; l.client_last_name = l.last_name || ''; l.client_name_not_provided = false; filled.push('veteran\'s name from the caller'); }
+    }
+    if(f.who === 'caregiver' && !v.cg_choice){ v.cg_choice = 'family'; if(!v.cg_name) v.cg_name = [l.first_name, l.last_name].filter(Boolean).join(' '); if(!v.cg_phone && l.phone) v.cg_phone = l.phone; filled.push('wants to be the caregiver: ' + (v.cg_name || 'the caller')); }
+    v.form_filled_at = new Date().toISOString();
+    l.va_referral = v;
+    return filled;
+  }
+  function isVeteran(l){ return answer(l) === 'yes' || (l && l.funding_source === 'va') || !!fromForm(l); }
   function data(l){ return Object.assign({}, (l && l.va_referral) || {}); }
   function hoursWeek(v){ const a = Number(v.hours_day), b = Number(v.days_week); return a > 0 && b > 0 ? Math.round(a * b * 2) / 2 : null; }
   function needsLine(v){ return (Array.isArray(v.adl) ? v.adl : []).map(k => ADL_WORD[k]).filter(Boolean).join(', '); }
@@ -232,7 +264,8 @@
   function intakeHtml(l){
     const v = data(l), en = v.enrolled || '', hw = hoursWeek(v), done = sectionsDone(l);
     const caller = [l.first_name, l.last_name].filter(Boolean).join(' '), vet = [l.client_first_name, l.client_last_name].filter(Boolean).join(' ');
-    let h = '<div class="card lw-card vai-card" id="vaiCard"><div class="lw-head"><b>VA intake</b><span class="field-note">fill it in while you talk. It saves to this lead. Nothing is sent to anyone until you send it.</span>' + explainBtn() + '<span style="flex:1;"></span><span class="field-note" style="color:var(--green);font-weight:700;">' + done + ' of 6 done</span></div>';
+    let h = '<div class="card lw-card vai-card" id="vaiCard"><div class="lw-head"><b>VA intake</b><span class="field-note">fill it in while you talk. It saves to this lead. Nothing is sent to anyone until you send it.</span>' + explainBtn() + '<span style="flex:1;"></span><span class="field-note" style="color:var(--green);font-weight:700;">' + done + ' of 6 done</span></div>'
+      + (v.form_filled_at ? '<div class="field-note" style="margin:-2px 0 6px;">Some answers came from the veterans page form (' + esc(dayOf(v.form_filled_at)) + '). Check them with them on the call.</div>' : '');
     h += '<div class="vai-sec" style="border:0;margin:0;padding:0;"><b>1 · Who is calling</b><div class="vai-grid">' + box('vai_caller', 'Name', caller) + box('vai_rel', 'Relationship', l.relationship, 'daughter, son, self…') + box('vai_phone', 'Phone', l.phone)
       + box('vai_email', 'Email', l.email, 'if they have one') + box('vai_best_time', 'Best time to call', v.best_time) + '<div class="vai-f"><span>Heard about us</span><span style="font-size:13.5px;color:var(--ink,#1d2b3a);">' + esc(l.heard_about ? ((root.HeardAbout && (root.HeardAbout.OPTIONS.find(o => o[0] === l.heard_about) || [])[1]) || l.heard_about) : 'ask them (Notes card above)') + '</span></div></div></div>';
     h += '<div class="vai-sec"><b>2 · The veteran</b><div class="vai-grid">' + box('vai_vet', 'Full name', vet) + box('vai_dob', 'Date of birth', l.client_dob, '', 'date') + box('vai_vphone', 'Phone', l.client_phone)
@@ -278,8 +311,19 @@
     if(!l || !R()) return '';
     css();
     let h = stripHtml(l);
+    if(fromForm(l) && !(l.va_referral && l.va_referral.form_filled_at)) setTimeout(() => formFill(l), 0);
     if(isVeteran(l)){ h += pathHtml(l) + intakeHtml(l); setTimeout(() => ssnLoad(l), 0); }
     return h;
+  }
+
+  /* the form's answers, saved once, the first time the lead is opened with the VA intake on */
+  const S_FORM = {};
+  async function formFill(l){
+    if(S_FORM[l.id]) return; S_FORM[l.id] = true;
+    const filled = applyForm(l, today()); if(!filled.length && !(l.va_referral && l.va_referral.form_filled_at)) return;
+    if(filled.length){ note(l, 'filled in from the veterans page form: ' + filled.join('; ') + '.'); remind(l, 'veteran_yes', data(l), true); }
+    try{ await persist('leads', l); }catch(e){ S_FORM[l.id] = false; return; }
+    redraw(); if(filled.length) toast('VA intake filled in from the veterans page form. Check it with them on the call.');
   }
 
   /* ── saving ── */
@@ -440,7 +484,7 @@
     try{ const d = await fn({ action:'remove', lead_id:String(l.id) }); S.ssn[l.id] = d.state; hide(); toast('Removed.'); }catch(err){ S.msg = err.message || String(err); ssnRedraw(); }
   }
 
-  const api = { EXPLAIN, explainHtml, liveOn, previewOn, setPreview, showing, ADL, answer, isVeteran, steps, current, reminderFor, addDays, ssnLike, hoursWeek, needsLine, sectionsDone, html, WORDS, FULL, APPLY_LINK, _state:S };
+  const api = { fromForm, applyForm, EXPLAIN, explainHtml, liveOn, previewOn, setPreview, showing, ADL, answer, isVeteran, steps, current, reminderFor, addDays, ssnLike, hoursWeek, needsLine, sectionsDone, html, WORDS, FULL, APPLY_LINK, _state:S };
   root.VaIntake = api;
   Object.assign(root, { vaiVet:vet, vaiVetChange:vetChange, vaiSet:setKey, vaiEnrolled:setEnrolled, vaiStep:step, vaiSave:saveAll, vaiCopyApply:copyApply,
     vaiExplain:explain, vaiSsnSave:ssnSave, vaiSsnReveal:ssnReveal, vaiSsnHide:hide, vaiSsnRemove:ssnRemove,
