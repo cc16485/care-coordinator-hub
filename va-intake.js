@@ -52,10 +52,23 @@
   function hoursWeek(v){ const a = Number(v.hours_day), b = Number(v.days_week); return a > 0 && b > 0 ? Math.round(a * b * 2) / 2 : null; }
   function needsLine(v){ return (Array.isArray(v.adl) ? v.adl : []).map(k => ADL_WORD[k]).filter(Boolean).join(', '); }
   const enrolled = v => v.enrolled === 'yes';
+  /* 2026-11-27 (her ask: "make sure the surviving spouse is eligible for that, they may not be"): they are not. VA Community
+     Care, Homemaker and Home Health Aide included, is for a veteran enrolled in VA health care, which a surviving spouse cannot
+     get (va.gov "Eligibility for community care outside VA"). CHAMPVA, which some surviving spouses have, does not cover
+     homemaker or attendant care (CHAMPVA Guidebook). A surviving spouse's VA help is the Survivors Pension (or DIC) with
+     Aid and Attendance, applied for with a free Veterans Service Officer; care with us is then private pay. */
+  const spouse = v => v.calling_for === 'spouse';
   /* the VA path, in her order (VA-billing-prep.md 3a). Each step: key, label, state done|now|todo|skip, words. */
   function steps(l, today){
     const v = data(l), out = [];
     const s = (key, label, done, skip, words) => out.push({ key, label, done:!!done, skip:!!skip, words:words || '' });
+    if(spouse(v)){
+      s('first', 'First call: intake filled in, family checklist sent', v.checklist_at, false, v.checklist_at ? 'Checklist sent ' + dayOf(v.checklist_at) : '');
+      s('vso', 'A free Veterans Service Officer: Survivors Pension with Aid and Attendance', v.vso_at, false, v.vso_at ? 'VSO meeting set ' + dayOf(v.vso_at) : '');
+      s('private', 'Care with us as private pay, if they want it', v.private_at, false, v.private_at ? 'Talked through private pay ' + dayOf(v.private_at) : '');
+      let n = false; out.forEach(x => { x.state = x.done ? 'done' : (!n ? (n = true, 'now') : 'todo'); });
+      return out;
+    }
     s('first', 'First call: VA intake filled in, family checklist sent', v.checklist_at, false, v.checklist_at ? 'Checklist sent ' + dayOf(v.checklist_at) + (v.walk_me ? ' · they want us to walk them through each step' : '') : '');
     s('enroll', 'Signed up for VA health care', enrolled(v) && (v.applied_at || v.enroll_confirmed_at || true), enrolled(v) && !v.applied_at, enrolled(v) ? (v.enroll_confirmed_at ? 'Enrollment came through ' + dayOf(v.enroll_confirmed_at) : 'Already enrolled') : v.applied_at ? 'Applied ' + dayOf(v.applied_at) + ' by ' + (ENROLL_WAYS[v.enroll_way] || 'phone') : '');
     s('ask', 'Three-way call to the VA primary care team', v.ask_at, false, v.ask_at ? 'Asked ' + dayOf(v.ask_at) + (v.ask_spoke_to ? ', spoke to ' + v.ask_spoke_to : '') + (v.ask_promised ? ' · promised: ' + v.ask_promised : '') : '');
@@ -85,6 +98,8 @@
           : { day:addDays(t, Math.max(3, Math.min(7, Number(v.checkin_days) || CHECKIN_DAYS))), why:'VA: check in with the family on the VA steps' };
       }
       case 'auth': return { day:t, why:'VA: the authorization arrived. Call the family today' };
+      case 'spouse': return { day:addDays(t, 7), why:'VA (surviving spouse): did they meet a free Veterans Service Officer about Survivors Pension with Aid and Attendance?' };
+      case 'vso_set': return { day:addDays(t, 14), why:'VA (surviving spouse): how did the Veterans Service Officer meeting go? Care with us would be private pay' };
       default: return null;
     }
   }
@@ -118,14 +133,43 @@
       + '.vai-help{background:var(--cream,#faf9f6);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;margin:6px 0;}'
       + '.vai-steps{border:1px solid var(--border);border-radius:10px;overflow:hidden;}.vai-st{display:flex;gap:10px;padding:9px 12px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:baseline;}.vai-st:first-child{border-top:0;}'
       + '.vai-st.done,.vai-st.skip{background:#E7F6EC;color:#1F7A4D;}.vai-st.now{background:#FDF3E3;}.vai-st .vai-n{width:20px;font-weight:700;}.vai-st .vai-b{flex:1 1 420px;min-width:0;}'
+      + '.vai-drawer-bg{position:fixed;inset:0;background:rgba(13,54,95,.25);z-index:9990;}.vai-drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:#fff;z-index:9991;overflow-y:auto;padding:18px 20px;box-shadow:-8px 0 24px rgba(0,0,0,.15);font-size:13.5px;line-height:1.5;}'
+      + '.vai-ex{border-top:1px solid var(--border);padding:9px 0;}.vai-ex .vai-ex-k{color:var(--navy);display:block;margin-bottom:2px;font-weight:700;}'
       + '.vai-ssn{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-top:8px;background:#FAFBFC;font-size:13.5px;}';
     document.head.appendChild(st);
+  }
+  /* ── the explainer drawer (her ask 2026-11-27: "since we are new to the va, put a little asterisk or drawer page to explain to
+     care coordinators about the community care network") ── */
+  const explainBtn = () => ' <button class="linklike vai-why" style="font-size:12.5px;margin-left:8px;" onclick="vaiExplain(true)" title="What VA Community Care is, who qualifies, how it starts">* What is VA Community Care?</button>';
+  const EXPLAIN = [
+    ['What it is', 'VA Community Care is how the VA pays outside providers to care for a veteran when the VA approves it. Caring Companions In-Home Senior Care is in network with the VA Community Care Network for <b>Homemaker and Home Health Aide</b> care: non-medical help at home, like bathing, dressing, meals, light housekeeping and medication reminders. "Home Health Aide" is the VA\'s name for the program. We do not provide skilled nursing.'],
+    ['Who qualifies', '<b>A veteran who is enrolled in VA health care</b>, and whose VA care team decides they need help at home. Not enrolled yet? They sign up for VA health care first (877-222-8387, va.gov/health-care/apply, or a VA clinic), then ask for the care.'],
+    ['A surviving spouse does not qualify', 'VA Community Care, including Homemaker and Home Health Aide care, is only for veterans enrolled in VA health care, and a surviving spouse cannot enroll. CHAMPVA, which some surviving spouses have, does not pay for homemaker or aide care either. A surviving spouse\'s VA help is the <b>Survivors Pension (or DIC) with Aid and Attendance</b>, a monthly payment they apply for with a free Veterans Service Officer. Care with us is then private pay.'],
+    ['How it starts', 'Only the VA can create the referral. The veteran (or their family) asks their VA primary care team or VA social worker for a Homemaker and Home Health Aide assessment and names Caring Companions In-Home Senior Care. The VA assesses them, decides the hours, and sends us a referral with a written authorization. <b>We never start care before the written authorization.</b>'],
+    ['Who pays', 'The VA pays us directly for authorized care. Say "you don\'t pay Caring Companions for VA-authorized care". Do not say "nothing out of pocket": the VA can charge some veterans its own copays.'],
+    ['Hours', 'The VA sets the hours, and the authorization usually runs 60 to 90 days before it is renewed. Never promise hours or approval.'],
+    ['The caregiver', 'Who gives the care is our decision. The veteran may want a family member or friend: they can apply to become our employee (background check, orientation, able to do the care). The VA is not told who the caregiver is; we ask the VA for Caring Companions In-Home Senior Care, never a specific person.'],
+    ['Not the same thing', '<b>Aid and Attendance</b> is a pension: money paid to the veteran or surviving spouse, who then pays us privately. Only accredited people, like a free Veterans Service Officer, may help with that claim; we never charge for it and never prepare it. <b>The VA family caregiver program</b> (PCAFC) is a separate VA program that pays a family caregiver directly.'],
+    ['Never', 'Sign anything for the veteran, promise hours or approval, charge for help with VA paperwork, or use the VA seal or logo.'],
+  ];
+  function explainHtml(){
+    return '<div class="vai-drawer-bg" onclick="vaiExplain(false)"></div><aside class="vai-drawer" role="dialog" aria-label="What is VA Community Care?"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:17px;color:var(--navy);flex:1;">What is VA Community Care?</b><button class="lb-btn" onclick="vaiExplain(false)">Close</button></div>'
+      + '<div class="field-note" style="margin:2px 0 10px;">For care coordinators. Plain answers to the questions families ask most.</div>'
+      + EXPLAIN.map(x => '<div class="vai-ex"><span class="vai-ex-k">' + x[0] + '</span><div>' + x[1] + '</div></div>').join('')
+      + '<div class="field-note" style="margin-top:10px;">More: <a href="javascript:void(0)" onclick="vaiExplain(false);ccOpenRef(\'va\')">VA on Payors &amp; Programs</a>. Sources: va.gov, Eligibility for community care outside VA; the CHAMPVA Guidebook; VA survivor benefits.</div></aside>';
+  }
+  function explain(on){
+    let el = document.getElementById('vaiDrawer');
+    if(!on){ if(el) el.remove(); return; }
+    css(); if(!el){ el = document.createElement('div'); el.id = 'vaiDrawer'; document.body.appendChild(el); }
+    el.innerHTML = explainHtml();
+    const close = el.querySelector('aside .lb-btn'); if(close) close.focus();
   }
   function stripHtml(l){
     const a = answer(l), va = l.funding_source === 'va';
     if(a === 'yes' || a === 'no' || va)
       return '<div class="card lw-card" id="vaiStrip" style="padding:10px 16px;"><span style="font-size:13.5px;"><b style="color:var(--navy);">Veteran?</b> ' + (a === 'no' && !va ? 'No' : 'Yes')
-        + (va && a !== 'yes' ? ' (pays with VA)' : '') + ' <button class="linklike" style="font-size:12.5px;margin-left:6px;" onclick="vaiVetChange()">change</button></span></div>';
+        + (va && a !== 'yes' ? ' (pays with VA)' : '') + ' <button class="linklike" style="font-size:12.5px;margin-left:6px;" onclick="vaiVetChange()">change</button></span>' + (a === 'no' && !va ? '' : explainBtn()) + '</div>';
     return '<div class="card lw-card" id="vaiStrip" style="padding:10px 16px;"><div class="vai-row" style="margin:0;"><b style="color:var(--navy);">Veteran?</b><span style="flex:1 1 280px;">Did they serve in the military, or were they married to someone who did?</span>'
       + pill(false, 'Yes', 'vaiVet(\'yes\')') + pill(false, 'No', 'vaiVet(\'no\')') + pill(a === 'not_sure', 'Not sure', 'vaiVet(\'not_sure\')') + '</div></div>';
   }
@@ -133,7 +177,8 @@
     const v = data(l), st = steps(l, today()), owner = l.assigned_coordinator || '';
     const nowKey = (st.find(x => x.state === 'now') || {}).key;
     const body = k => {
-      if(k === 'first') return '<div class="field-note">Say: "I\'ll be your VA guide. There are four steps to VA home care, and I\'ll walk you through every one." Mail or email the family checklist the same day, with your name and direct number on it.</div>'
+      if(k === 'first') return '<div class="field-note">' + (spouse(v) ? 'Say: "I\'ll be your guide. The VA home aide program is only for veterans, but there is VA help for surviving spouses, and I\'ll help you find it." Mail' : 'Say: "I\'ll be your VA guide. There are four steps to VA home care, and I\'ll walk you through every one." Mail')
+        + ' or email the family checklist the same day, with your name and direct number on it.</div>'
         + chk('vai_walk', 'They want us to walk them through each step (we call every few days until care starts)', !!v.walk_me)
         + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'first\')">Checklist sent today</button></div>';
       if(k === 'enroll') return '<div class="vai-help">VA health care comes first. Offer, in this order: <b>(1)</b> a three-way call: they call ' + VA_PHONE + ' with us on the line, or we walk them through ' + ENROLL_URL + ' while they type (fastest); <b>(2)</b> a kitchen-table visit; <b>(3)</b> by mail: we fill in the paper 10-10EZ with them, <b>leave the Social Security number box blank</b>, and mail it to them with a stamped envelope to the VA. They add the number, sign and mail it themselves. We never sign for them.</div>'
@@ -151,19 +196,24 @@
         + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'prep\')">Prep call done</button></div>';
       if(k === 'waiting') return '<div class="field-note">Text or call every 3 to 7 days and after every step ("Your enrollment went through", "The VA has the request", "Your assessment is Tuesday"). No word ' + CONSULT_SILENT_DAYS + ' days after the ask: call the social worker or the VA Community Care office.</div>'
         + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'checkin\')">Checked in today</button><button class="lb-btn" onclick="vaiStep(\'va_word\')">Heard from the VA</button><button class="lb-btn" onclick="vaiStep(\'auth\')">Authorization arrived</button></div>';
+      if(k === 'vso') return '<div class="vai-help">A surviving spouse cannot get VA Community Care home aide care: it is only for veterans enrolled in VA health care. Their VA help is the <b>Survivors Pension (or DIC) with Aid and Attendance</b>, a monthly payment that can help pay for care. A free, accredited <b>Veterans Service Officer</b> (VSO) helps them apply. Offer to sit in. We never charge for this and never prepare the claim.</div>'
+        + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'vso\')">VSO meeting set</button></div>';
+      if(k === 'private') return '<div class="field-note">Care with us is private pay, the same as any family (the pension can help pay for it). Never promise the pension will be approved.</div>'
+        + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'private\')">Talked through private pay</button></div>';
       if(k === 'auth') return '<div class="field-note">Call the family the same day. Then the home visit, care plan and first shift, as for every new client. Never start care before the written authorization.</div>'
         + '<div class="lb-actions"><button class="lb-btn lb-btn-primary" onclick="vaiStep(\'auth_called\')">Called the family</button></div>';
       return '';
     };
-    const remind = { first:'', enroll:'Reminder: 1 week to check the enrollment', ask:'Reminder: check-in every ' + CHECKIN_DAYS + ' days', prep:'Reminder: the day before the assessment', waiting:'Reminder: every ' + CHECKIN_DAYS + ' days', auth:'Reminder: the same day' };
-    return '<div class="card lw-card vai-card" id="vaiPath"><div class="lw-head"><b>VA path</b><span class="field-note">one step at a time; each step sets the reminder (the next step on Leads and in My Work)</span><span style="flex:1;"></span>'
+    const remind = { vso:'Reminder: 1 week to check the VSO meeting', private:'', first:'', enroll:'Reminder: 1 week to check the enrollment', ask:'Reminder: check-in every ' + CHECKIN_DAYS + ' days', prep:'Reminder: the day before the assessment', waiting:'Reminder: every ' + CHECKIN_DAYS + ' days', auth:'Reminder: the same day' };
+    return '<div class="card lw-card vai-card" id="vaiPath"><div class="lw-head"><b>VA path</b><span class="field-note">one step at a time; each step sets the reminder (the next step on Leads and in My Work)</span>' + explainBtn() + '<span style="flex:1;"></span>'
       + '<span class="field-note">VA guide: <b>' + esc(owner || 'nobody yet') + '</b> (the lead\'s owner)</span></div>'
+      + (spouse(v) ? '<div class="vai-help" style="border-color:#E0B25B;background:#FDF3E3;margin:0 0 8px;"><b>Surviving spouse: VA Community Care does not cover them.</b> It is only for veterans enrolled in VA health care. The steps below point them to a free Veterans Service Officer for the Survivors Pension with Aid and Attendance; care with us is private pay.</div>' : '')
       + '<div class="vai-steps">' + st.map((x, i) => '<div class="vai-st ' + x.state + '"><span class="vai-n">' + (x.state === 'done' || x.state === 'skip' ? '✓' : i + 1) + '</span><div class="vai-b"><b>' + esc(x.label) + '</b>'
         + (x.state === 'skip' ? ' <span class="field-note">not needed: already enrolled</span>' : '') + (x.words ? '<div class="field-note">' + esc(x.words) + '</div>' : '')
         + (x.key === nowKey ? '<div style="margin-top:6px;">' + body(x.key) + '</div>' : '') + '</div>' + (x.state === 'todo' || x.state === 'now' ? '<span class="field-note">' + esc(remind[x.key] || '') + '</span>' : '') + '</div>').join('') + '</div>'
       + '<div class="vai-grid" style="margin-top:10px;">'
       + '<div class="vai-help" style="margin:0;"><b>Family or friend caregiver</b><br>' + (v.cg_choice === 'family' ? 'Start their hiring now, while we wait (VA Family or Friend Caregiver). ' + (v.cg_link_at ? '✓ Application link copied' + who(v.cg_link_at) : '<button class="linklike" onclick="vaiCopyApply(this)">Copy the application link</button>') : 'They chose one of our caregivers (or have not said).') + '</div>'
-      + '<div class="vai-help" style="margin:0;"><b>Aid and Attendance</b><br>' + (v.aa_interest ? 'Set up a free Veterans Service Officer meeting and offer to sit in. We never charge and never prepare the claim. ' + (v.vso_at ? '✓ VSO meeting set' + who(v.vso_at) : '<button class="linklike" onclick="vaiStep(\'vso\')">VSO meeting set</button>') : 'Not asked about, or not interested.') + '</div>'
+      + (spouse(v) ? '' : '<div class="vai-help" style="margin:0;"><b>Aid and Attendance</b><br>' + (v.aa_interest ? 'Set up a free Veterans Service Officer meeting and offer to sit in. We never charge and never prepare the claim. ' + (v.vso_at ? '✓ VSO meeting set' + who(v.vso_at) : '<button class="linklike" onclick="vaiStep(\'vso\')">VSO meeting set</button>') : 'Not asked about, or not interested.') + '</div>')
       + '<div class="vai-help" style="margin:0;"><b>Never</b><br>Sign for the veteran, promise hours or approval, or charge for VA paperwork help. The Social Security number goes only in its locked box below.</div>'
       + '</div></div>';
   }
@@ -182,15 +232,17 @@
   function intakeHtml(l){
     const v = data(l), en = v.enrolled || '', hw = hoursWeek(v), done = sectionsDone(l);
     const caller = [l.first_name, l.last_name].filter(Boolean).join(' '), vet = [l.client_first_name, l.client_last_name].filter(Boolean).join(' ');
-    let h = '<div class="card lw-card vai-card" id="vaiCard"><div class="lw-head"><b>VA intake</b><span class="field-note">fill it in while you talk. It saves to this lead. Nothing is sent to anyone until you send it.</span><span style="flex:1;"></span><span class="field-note" style="color:var(--green);font-weight:700;">' + done + ' of 6 done</span></div>';
+    let h = '<div class="card lw-card vai-card" id="vaiCard"><div class="lw-head"><b>VA intake</b><span class="field-note">fill it in while you talk. It saves to this lead. Nothing is sent to anyone until you send it.</span>' + explainBtn() + '<span style="flex:1;"></span><span class="field-note" style="color:var(--green);font-weight:700;">' + done + ' of 6 done</span></div>';
     h += '<div class="vai-sec" style="border:0;margin:0;padding:0;"><b>1 · Who is calling</b><div class="vai-grid">' + box('vai_caller', 'Name', caller) + box('vai_rel', 'Relationship', l.relationship, 'daughter, son, self…') + box('vai_phone', 'Phone', l.phone)
       + box('vai_email', 'Email', l.email, 'if they have one') + box('vai_best_time', 'Best time to call', v.best_time) + '<div class="vai-f"><span>Heard about us</span><span style="font-size:13.5px;color:var(--ink,#1d2b3a);">' + esc(l.heard_about ? ((root.HeardAbout && (root.HeardAbout.OPTIONS.find(o => o[0] === l.heard_about) || [])[1]) || l.heard_about) : 'ask them (Notes card above)') + '</span></div></div></div>';
     h += '<div class="vai-sec"><b>2 · The veteran</b><div class="vai-grid">' + box('vai_vet', 'Full name', vet) + box('vai_dob', 'Date of birth', l.client_dob, '', 'date') + box('vai_vphone', 'Phone', l.client_phone)
       + box('vai_addr', 'Home address', l.client_address, '', 'text', true) + box('vai_city', 'City / county', [l.client_city, l.county].filter(Boolean).join(', '), 'Springfield, Greene') + '</div>'
       + '<div class="vai-row"><span class="vai-k">Lives</span>' + LIVES.map(o => pill(v.lives === o[0], o[1], 'vaiSet(\'lives\',' + q(o[0]) + ')')).join('') + (v.lives === 'other' ? '<input id="vai_lives_other" value="' + esc(v.lives_other || '') + '" placeholder="who with" style="width:200px;">' : '') + '</div>'
       + '<div class="vai-row"><span class="vai-k">Calling for</span>' + FOR.map(o => pill(v.calling_for === o[0], o[1], 'vaiSet(\'calling_for\',' + q(o[0]) + ')')).join('') + '</div>'
+      + (spouse(v) ? '<div class="vai-help" style="border-color:#E0B25B;background:#FDF3E3;"><b>A surviving spouse is not eligible for VA Community Care home aide care.</b> It is only for veterans enrolled in VA health care. Do not read them the words for the VA. Point them to a free Veterans Service Officer for the Survivors Pension with Aid and Attendance (the VA path above). Care with us is private pay. ' + explainBtn() + '</div>' : '')
       + ssnHtml(l) + '</div>';
-    h += '<div class="vai-sec"><b>3 · VA health care</b><div class="vai-row"><span class="vai-k">Enrolled?</span>' + pill(en === 'yes', 'Yes', 'vaiEnrolled(\'yes\')') + pill(en === 'no', 'No', 'vaiEnrolled(\'no\')') + pill(en === 'not_sure', 'Not sure', 'vaiEnrolled(\'not_sure\')') + '</div>'
+    if(spouse(v)) h += '<div class="vai-sec"><b>3 · VA health care</b><div class="field-note">Not needed for a surviving spouse.</div></div>';
+    else h += '<div class="vai-sec"><b>3 · VA health care</b><div class="vai-row"><span class="vai-k">Enrolled?</span>' + pill(en === 'yes', 'Yes', 'vaiEnrolled(\'yes\')') + pill(en === 'no', 'No', 'vaiEnrolled(\'no\')') + pill(en === 'not_sure', 'Not sure', 'vaiEnrolled(\'not_sure\')') + '</div>'
       + (en === 'no' || en === 'not_sure' ? '<div class="vai-help"><b>Sign up for VA health care first.</b> Then they ask for Homemaker and Home Health Aide care. ' + ENROLL_URL + ' (form 10-10EZ), ' + VA_PHONE + ', or in person at a VA clinic. Have the DD-214 (a lost one can be requested free at ' + DD214_URL + ').' + (en === 'not_sure' ? ' Not sure: call ' + VA_PHONE + ' and ask.' : '') + ' The VA path above walks through it.</div>' : '')
       + '<div class="vai-grid">' + box('lwVa_clinic', 'VA clinic they go to', v.clinic) + box('lwVa_doctor', 'VA doctor / care team', v.doctor) + box('lwVa_social', 'VA social worker', v.social, 'if they know')
       + box('vai_social_phone', 'Social worker phone', v.social_phone) + box('vai_social_fax', 'Social worker fax', v.social_fax) + box('lwVa_clinic_fax', 'Clinic fax', v.clinic_fax, 'ask the clinic for it') + '</div>'
@@ -202,18 +254,18 @@
       + (hw ? '<div class="field-note">About ' + hw + ' hours a week. The VA sets the real hours; never promise them.</div>' : '') + '</div>';
     h += '<div class="vai-sec"><b>5 · Who would be the caregiver</b><span class="field-note">For our office only. It never goes on anything sent to the VA.</span><div class="vai-row">' + pill(v.cg_choice === 'ours', 'One of our caregivers', 'vaiSet(\'cg_choice\',\'ours\')') + pill(v.cg_choice === 'family', 'A family member or friend they trust', 'vaiSet(\'cg_choice\',\'family\')') + '</div>'
       + (v.cg_choice === 'family' ? '<div class="vai-grid">' + box('lwVa_cg_name', 'Name', v.cg_name) + box('lwVa_cg_rel', 'Relationship', v.cg_rel) + box('vai_cg_phone', 'Phone', v.cg_phone) + '</div><div class="field-note">They become our employee: background check, orientation, able to give the care the veteran needs. The VA path has the application link.</div>' : '') + '</div>';
-    h += '<div class="vai-say"><b>Read this to them: what to tell the VA</b><div>Call your VA primary care team or ask for the VA social worker, and say:</div><div style="font-size:15px;font-weight:600;margin:4px 0;">"' + esc(WORDS) + '"</div>'
+    if(!spouse(v)) h += '<div class="vai-say"><b>Read this to them: what to tell the VA</b><div>Call your VA primary care team or ask for the VA social worker, and say:</div><div style="font-size:15px;font-weight:600;margin:4px 0;">"' + esc(WORDS) + '"</div>'
       + '<div class="field-note">Only the VA can create the referral. Hours are set by the VA. Never start care before the written VA authorization.</div></div>';
     h += '<div class="vai-sec"><b>6 · Before you hang up</b>'
-      + chk('vai_read_words', 'Read them the words to tell the VA', !!v.read_words_at, who(v.read_words_at, v.read_words_by))
+      + (spouse(v) ? '' : chk('vai_read_words', 'Read them the words to tell the VA', !!v.read_words_at, who(v.read_words_at, v.read_words_by))
       + chk('lwVa_ok', esc(vet || 'The veteran') + ' (or the person with their power of attorney) said OK to fax our referral sheet to their social worker', !!v.ok_at, who(v.ok_at, v.ok_by))
-      + chk('vai_enroll_help', 'Not enrolled: gave them the enroll link and number', !!v.enroll_help_at, enrolled(v) ? '(not needed: enrolled)' : who(v.enroll_help_at), enrolled(v))
+      + chk('vai_enroll_help', 'Not enrolled: gave them the enroll link and number', !!v.enroll_help_at, enrolled(v) ? '(not needed: enrolled)' : who(v.enroll_help_at), enrolled(v)))
       + chk('vai_aa', 'Interested in Aid and Attendance (pension)? Point them to a free Veterans Service Officer', !!v.aa_interest)
       + '<div class="vai-c"><span>Follow-up call: ' + esc(l.follow_up_due ? (R().dayWords ? R().dayWords(l.follow_up_due, today()) : l.follow_up_due) + (l.follow_up_note ? ' · ' + l.follow_up_note : '') : 'not set') + '</span> <button class="linklike" style="font-size:12.5px;" onclick="lwFollowUp(this)">change</button></div>'
       + chk('vai_va_emails', 'On the VA emails ("va lead"): one VA guide a month instead of the main email', String(l.email_campaign || '') === 'va')
-      + '<div class="lb-actions" style="margin-top:8px;"><button class="lb-btn lb-btn-primary" onclick="vaiSave(this)">Save</button><button class="lb-btn" onclick="vaiSave(null).then(()=>lwVaLetter())">Print or fax the referral sheet</button>'
+      + '<div class="lb-actions" style="margin-top:8px;"><button class="lb-btn lb-btn-primary" onclick="vaiSave(this)">Save</button>' + (spouse(v) ? '' : '<button class="lb-btn" onclick="vaiSave(null).then(()=>lwVaLetter())">Print or fax the referral sheet</button>'
       + '<button class="lb-btn" onclick="vaiSave(null).then(()=>lwVaCopy(this))">Copy as a My HealtheVet message</button>'
-      + (v.sent_at ? '' : '<select id="lwVa_how" style="width:auto;"><option value="fax">Faxed to the VA clinic</option><option value="mhv">Sent as a My HealtheVet message</option><option value="mail">Mailed</option><option value="call">Read to the care team on a call</option><option value="person">Taken in person</option></select><button class="lb-btn" onclick="vaiSave(null).then(()=>{ lwVaSent(); })">Mark sent today</button>')
+      + (v.sent_at ? '' : '<select id="lwVa_how" style="width:auto;"><option value="fax">Faxed to the VA clinic</option><option value="mhv">Sent as a My HealtheVet message</option><option value="mail">Mailed</option><option value="call">Read to the care team on a call</option><option value="person">Taken in person</option></select><button class="lb-btn" onclick="vaiSave(null).then(()=>{ lwVaSent(); })">Mark sent today</button>'))
       + '<button class="linklike" style="font-size:12.5px;" onclick="officeFaxOpen(this)">Our fax and eFax sign-in</button></div>'
       + (v.sent_at ? '<div class="field-note">✓ Sent ' + esc(vaDay(v.sent_at)) + (v.sent_by ? ' by ' + esc(v.sent_by) : '') + '. VA-paid visits start only once we have the authorization number.</div>' : '')
       + '<span class="field-note" id="lwVaMsg"></span></div>';
@@ -283,6 +335,7 @@
   async function setKey(k, value){
     const l = lead(); if(!l) return; const r = readCard(l); if(r.error){ toast(r.error); return; }
     r.v[k] = r.v[k] === value && ['lives', 'calling_for', 'cg_choice', 'va_home_care', 'discharge', 'dd214', 'enroll_way'].indexOf(k) > -1 ? '' : value;
+    if(k === 'calling_for' && r.v[k] === 'spouse'){ note(l, 'calling for a surviving spouse: not eligible for VA Community Care home aide care. Next: a free Veterans Service Officer about the Survivors Pension with Aid and Attendance; care with us is private pay.'); remind(l, 'spouse', r.v); }
     await put(l, r.v, r.p);
   }
   async function vet(ans){
@@ -313,7 +366,8 @@
       va_word:() => { v.va_word_at = at; v.last_checkin_at = at; note(l, 'heard from the VA.'); return 'checkin'; },
       auth:() => { v.auth_at = at; note(l, 'the VA authorization arrived. Call the family today.'); return 'auth'; },
       auth_called:() => { v.auth_called_at = at; note(l, 'called the family about the authorization. Next: home visit, care plan, first shift.'); },
-      vso:() => { v.vso_at = at; note(l, 'Veterans Service Officer meeting set for Aid and Attendance.'); } }[k];
+      vso:() => { v.vso_at = at; note(l, 'Veterans Service Officer meeting set for ' + (spouse(v) ? 'the Survivors Pension with ' : '') + 'Aid and Attendance.'); return spouse(v) ? 'vso_set' : null; },
+      private:() => { v.private_at = at; note(l, 'talked through care with us as private pay (surviving spouse).'); } }[k];
     if(!ev) return;
     const out = ev();
     if(out === 'need_date'){ toast('Type the date first.'); return; }
@@ -386,10 +440,10 @@
     try{ const d = await fn({ action:'remove', lead_id:String(l.id) }); S.ssn[l.id] = d.state; hide(); toast('Removed.'); }catch(err){ S.msg = err.message || String(err); ssnRedraw(); }
   }
 
-  const api = { liveOn, previewOn, setPreview, showing, ADL, answer, isVeteran, steps, current, reminderFor, addDays, ssnLike, hoursWeek, needsLine, sectionsDone, html, WORDS, FULL, APPLY_LINK, _state:S };
+  const api = { EXPLAIN, explainHtml, liveOn, previewOn, setPreview, showing, ADL, answer, isVeteran, steps, current, reminderFor, addDays, ssnLike, hoursWeek, needsLine, sectionsDone, html, WORDS, FULL, APPLY_LINK, _state:S };
   root.VaIntake = api;
   Object.assign(root, { vaiVet:vet, vaiVetChange:vetChange, vaiSet:setKey, vaiEnrolled:setEnrolled, vaiStep:step, vaiSave:saveAll, vaiCopyApply:copyApply,
-    vaiSsnSave:ssnSave, vaiSsnReveal:ssnReveal, vaiSsnHide:hide, vaiSsnRemove:ssnRemove,
+    vaiExplain:explain, vaiSsnSave:ssnSave, vaiSsnReveal:ssnReveal, vaiSsnHide:hide, vaiSsnRemove:ssnRemove,
     vaiSsnAsk:on => { S.ask = !!on; S.msg = ''; ssnRedraw(); }, vaiSsnAdd:on => { S.add = !!on; S.msg = ''; ssnRedraw(); } });
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

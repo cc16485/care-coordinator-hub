@@ -109,6 +109,20 @@ async()=>{
   document.getElementById('vai_va_emails').checked=true; await vaiSave(document.createElement('button')); await sleep(250); w=last('vet1');
   ok('On the VA emails: email_campaign va and the va lead tag, logged', w.email_campaign==='va' && w.intent_tags.includes('va lead') && w.comm_log.some(c=>/VA series/.test(c.body)));
   ok('no em dashes anywhere on the VA cards', !/—/.test(document.getElementById('vaiPath').innerText + document.getElementById('vaiCard').innerText + document.getElementById('vaiStrip').innerText));
+  /* the explainer drawer */
+  document.querySelector('#vaiCard .vai-why').click(); await sleep(150);
+  const dr=document.querySelector('#vaiDrawer aside');
+  ok('* What is VA Community Care? opens a drawer: who qualifies, surviving spouses do not, how it starts, who pays', dr && /enrolled in VA health care/.test(dr.innerText) && /surviving spouse does not qualify/i.test(dr.innerText) && /Only the VA can create the referral/.test(dr.innerText) && /VA pays us directly/.test(dr.innerText), dr && dr.innerText.slice(0,300));
+  document.querySelector('#vaiDrawer .vai-drawer-bg').click(); await sleep(100);
+  ok('...and closes', !document.getElementById('vaiDrawer'));
+  /* a surviving spouse */
+  await openClient({ lead_id:'fam2' }, 'summary'); await sleep(300); await vaiVetChange(); await sleep(150); await vaiVet('yes'); await sleep(300);
+  await vaiSet('calling_for','spouse'); await sleep(300); w=last('fam2');
+  ok('Calling for a surviving spouse: the card says they are not eligible, the path is VSO then private pay, the reminder is about the Survivors Pension', /not eligible for VA Community Care/.test(H()) && /Veterans Service Officer: Survivors Pension/.test(H()) && /private pay/.test(H()) && /Survivors Pension/.test(w.follow_up_note) && /surviving spouse/.test(w.comm_log.slice(-1)[0].body), [w.follow_up_note]);
+  ok('...no words for the VA, no referral sheet or My HealtheVet buttons, no VA health care questions, no three-way call step', !/Read this to them: what to tell the VA/i.test(H()) && !/Print or fax the referral sheet/.test(H()) && !document.getElementById('lwVa_clinic') && !/Three-way call to the VA primary care team/.test(H()));
+  await vaiStep('first'); await sleep(200); await vaiStep('vso'); await sleep(250); w=last('fam2');
+  ok('VSO meeting set: logged, and the next reminder asks how it went (private pay)', !!w.va_referral.vso_at && /private pay/.test(w.follow_up_note) && /Talked through private pay/.test(H()));
+  await openClient({ lead_id:'vet1' }, 'summary'); await sleep(300);
   /* Settings */
   switchTab('settings'); await sleep(300); vaiSetFill();
   ok('Settings → Leads: the VA intake switch says On (it was set for this test) and owners can change it', /On\./.test(document.getElementById('vaiSetNow').innerText));

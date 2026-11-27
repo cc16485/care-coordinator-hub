@@ -28,6 +28,18 @@ eq(keys({ va_referral:{ checklist_at:'x', enrolled:'yes', ask_at:'x', prep_at:'x
 eq(keys({ va_referral:{ checklist_at:'x', enrolled:'yes', ask_at:'x', prep_at:'x', auth_at:'x' } })[5], 'auth:now', 'authorization arrived: call the family');
 eq(V.current({ va_referral:{ checklist_at:'x', enrolled:'yes', ask_at:'x', prep_at:'x', auth_at:'x', auth_called_at:'x' } }, T), '', 'all done: no step left');
 
+/* a surviving spouse is not eligible for VA Community Care: their own path */
+eq(keys({ va_referral:{ calling_for:'spouse', enrolled:'yes' } }), ['first:now', 'vso:todo', 'private:todo'], 'surviving spouse: no VA ask at all, a Veterans Service Officer and private pay instead');
+eq(keys({ va_referral:{ calling_for:'spouse', checklist_at:'x' } })[1], 'vso:now', '...the VSO is next after the first call');
+ok(/Survivors Pension/.test(V.reminderFor('spouse', {}, T).why) && V.reminderFor('spouse', {}, T).day === '2026-12-04', 'spouse: the reminder in 7 days is about the VSO and the Survivors Pension');
+ok(/private pay/.test(V.reminderFor('vso_set', {}, T).why), '...after the VSO meeting is set: how did it go, care is private pay');
+/* the explainer drawer */
+const ex = V.EXPLAIN.map(x => x[0]);
+ok(['What it is', 'Who qualifies', 'A surviving spouse does not qualify', 'How it starts', 'Who pays', 'Hours', 'The caregiver', 'Not the same thing', 'Never'].every(k => ex.includes(k)), 'the drawer answers what it is, who qualifies, spouses, how it starts, who pays, hours, caregiver, what it is not, never');
+const exText = V.EXPLAIN.map(x => x[1]).join(' ');
+ok(/enrolled in VA health care/.test(exText) && /CHAMPVA[^.]*does not pay for homemaker/.test(exText) && /never start care before the written authorization/i.test(exText) && /you don't pay Caring Companions for VA-authorized care/.test(exText), '...with the facts: enrollment needed, CHAMPVA does not cover it, no care before authorization, her "you don\'t pay" wording');
+ok(/never a specific person/.test(exText) && !/—/.test(exText), '...the VA is never asked for a specific caregiver, and no em dashes');
+
 /* the reminders (each one becomes the lead's next step) */
 const rf = (ev, v, t) => V.reminderFor(ev, v || {}, t || T);
 eq(rf('veteran_yes', { enrolled:'yes' }).day, '2026-12-04', 'Veteran yes: follow-up in 7 days');
