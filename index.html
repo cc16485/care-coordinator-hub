@@ -1631,7 +1631,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- New clients scoreboard (bonus v2, 2026-10-22: moved here from the top of My Work, her call): the team goal and each Care
          Coordinator's new clients this month, dollars only for her own and owners. new-clients.js. -->
     <section class="tabpanel" id="tab-clientgoals"><div id="cgoNewClients"></div><div id="cgoWrap"></div></section>
-    <section class="tabpanel" id="tab-myweek"><div id="mwWrap"></div></section><!-- 2026-11-17: My Week (my-week.js) -->
+    <section class="tabpanel" id="tab-myweek"><div id="t100Week"></div><div id="mwWrap"></div></section><!-- 2026-11-17: My Week (my-week.js) -->
     <section class="tabpanel" id="tab-howto"><div id="htWrap"></div></section><!-- 2026-11-13: How-to for care coordinators (howto.js) -->
     <section class="tabpanel" id="tab-myinterviews"><div id="mivWrap"></div></section><!-- 2026-11-23: My interviews, each interviewer's own interview calendar (my-interviews.js) -->
     <section class="tabpanel" id="tab-cctraining"><div id="ctWrap"></div></section><!-- 2026-11-14: Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) -->
@@ -1799,6 +1799,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <button class="ghost" onclick="opsToggleAdd()">Cancel</button>
         </div>
       </div>
+      <div id="t100Work"></div><!-- 2026-11-25: Today's 100 (todays-100.js), one quiet line -->
       <div id="myWorkWrap"></div>
       <!-- Demoted, not deleted. The scope switch (mine / everyone) and the
            Overview's standup, care alerts and KPI sections still live on these
@@ -7654,7 +7655,7 @@ The HomeTogether team</pre>
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="howto.js?v=3"></script>
-<script src="my-week.js?v=20261117n"></script><!-- 2026-11-17: My Week, Samantha only --><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
+<script src="my-week.js?v=20261117n"></script><script src="todays-100.js?v=20261125a"></script><!-- 2026-11-25: Today's 100 --><!-- 2026-11-17: My Week, Samantha only --><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
 <script src="coordinator-training.js?v=7"></script>
 <script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
@@ -9054,7 +9055,7 @@ function renderActiveTab(){
   if(activeTab==='friendsfamily'){ const go=()=>{ try{ window.FFT&&FFT.mount(); }catch(e){ console.warn('friends and family', e); } };
     if(window.FFT) go(); else { const sc=document.createElement('script'); sc.src='ff-tab.js?v=9'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
-  if(activeTab==='mywork'){ renderMyWork(); if(typeof hoRefresh==='function') hoRefresh(); }
+  if(activeTab==='mywork'){ renderMyWork(); if(typeof hoRefresh==='function') hoRefresh(); try{ if(window.T100) T100.render('t100Work','work'); }catch(e){} }
   if(activeTab==='myrole') renderMyRole();
   if(activeTab==='myteam') renderMyTeam();
   if(activeTab==='referrers') renderReferrers();
@@ -9088,6 +9089,7 @@ function renderActiveTab(){
   if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   if(activeTab==='howto' && window.HT) HT.render();
   if(activeTab==='myweek' && window.MW) MW.render('mwWrap');
+  if(activeTab==='myweek' && window.T100){ try{ T100.render('t100Week','week'); }catch(e){} }   /* 2026-11-25: Today's 100 */
   if(activeTab==='cctraining' && window.CTR) CTR.render();
   if(activeTab==='myinterviews' && window.MIV) MIV.render();
   /* the Augusta interview feed was removed 2026-10-01 */
