@@ -5017,6 +5017,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="lgToggleBtn" onclick="lgToggle(this)">Turn on the simpler Leads list for everyone</button>
   <span class="field-note" id="lgSaved"></span>
 </div>
+<!-- VA intake on the lead page (2026-11-27, her approved mockup https://claude.ai/artifact/SKihZZbPd3zsPFnerk2iGQ, "Yes, build it"): ops_settings.va_intake_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">VA intake on the lead page</div>
+<p class="hint">A <b>Veteran?</b> question on every lead page (the same answer as the Payer tab's program question). Yes opens the <b>VA path</b> (one step at a time, each step setting the next follow-up, so the reminder shows on Leads and in the VA guide's My Work) and the <b>VA intake</b> from the paper sheet, with the words for the veteran to say to the VA. The Social Security number goes only in its locked box: sealed on the server, last 4 shown, opened with a reason for 5 minutes, every opening logged, deleted when the lead is marked lost or saved for later. Nothing is sent to the veteran or the VA by itself. While it is off, the lead page shows the VA paperwork card as it does today, and an owner can preview the new one for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="vaiSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="vaiToggleBtn" onclick="vaiToggle(this)">Turn on the VA intake for everyone</button>
+  <button class="secondary" id="vaiPreviewBtn" onclick="VaIntake.setPreview(!VaIntake.previewOn());vaiSetFill();try{lwRender();}catch(e){}">Preview the VA intake (only me)</button>
+  <span class="field-note" id="vaiSaved"></span>
+</div>
 <!-- Call notes from recorded calls (2026-10-29, her "do the same for our leads" after the CDS hub): ops_settings.call_notes_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Call notes from recorded calls</div>
 <p class="hint">After every answered call on a lead, the call reader writes a short note and a suggested call back date. It waits on the family's Leads row and profile until someone presses "OK, save it" (the note goes on their call log and the call back date is set) or "Not about them". Read the whole call, Listen, and Add as a contact for people heard on the call. Notes are for the office only: nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
@@ -7634,7 +7643,8 @@ The HomeTogether team</pre>
 <script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
 <script src="leads-groups.js?v=3"></script><!-- The simpler Leads list (2026-11-23): three groups, behind ops_settings.leads_groups_live -->
 <script src="leads-board.js?v=25"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=17"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="va-intake.js?v=4"></script><!-- 2026-11-27: the VA intake on the lead page, behind ops_settings.va_intake_live -->
+<script src="lead-workspace.js?v=18"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="client-glance.js?v=4"></script><!-- the client at a glance (2026-10-29) -->
@@ -19477,6 +19487,26 @@ async function lgToggle(btn){
   const sv=document.getElementById('lgSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   lgSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* VA intake on the lead page (2026-11-27): the switch, owners only (va-intake.js) */
+function vaiSetFill(){
+  const now=document.getElementById('vaiSetNow'), b=document.getElementById('vaiToggleBtn'), pv=document.getElementById('vaiPreviewBtn'); if(!now) return;
+  const on=!!(window.VaIntake&&VaIntake.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the Veteran? question and the VA intake on lead pages.':'<b style="color:#B7791F;">Off.</b> Lead pages show the VA paperwork card as today'+(window.VaIntake&&VaIntake.previewOn()?' except for you (preview, this browser).':'.'))+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the VA intake':'Turn on the VA intake for everyone'; b.style.display=owner?'':'none'; }
+  if(pv){ pv.textContent=window.VaIntake&&VaIntake.previewOn()?'Stop previewing the VA intake':'Preview the VA intake (only me)'; pv.style.display=owner&&!on?'':'none'; }
+}
+async function vaiToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the VA intake.'); return; }
+  const on=!(window.VaIntake&&VaIntake.liveOn(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on the VA intake for everyone?\n\nA Veteran? question on every lead page, and for veterans the VA path and the VA intake with the locked Social Security number box. Nothing is sent to anyone.'
+    :'Turn off the VA intake? Lead pages go back to the VA paperwork card. Everything already typed stays on the leads.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.va_intake_live=on; if(on&&!m.va_intake_live_since) m.va_intake_live_since=new Date().toISOString(); return ['VA intake '+(on?'ON':'OFF')]; }, 'VA intake');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('vaiSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  vaiSetFill(); try{ lwRender(); }catch(e){}
+}
 /* Call notes (2026-10-29): the switch, owners only. Off = no call notes anywhere (an owner may preview them). */
 function cnSetFill(){
   const now=document.getElementById('cnSetNow'), b=document.getElementById('cnToggleBtn'), pv=document.getElementById('cnPreviewBtn'); if(!now) return;
@@ -19666,6 +19696,7 @@ function lhSetFill(){
   try{ ltcSetFill(); }catch(e){}
   try{ ltsSetFill(); }catch(e){}
   try{ lgSetFill(); }catch(e){}
+  try{ vaiSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
   try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
   try{ if(window.CAA) CAA.settingsFill(); }catch(e){}
