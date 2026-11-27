@@ -187,6 +187,7 @@
   function explainHtml(){
     return '<div class="vai-drawer-bg" onclick="vaiExplain(false)"></div><aside class="vai-drawer" role="dialog" aria-label="What is VA Community Care?"><div style="display:flex;align-items:center;gap:8px;"><b style="font-size:17px;color:var(--navy);flex:1;">What is VA Community Care?</b><button class="lb-btn" onclick="vaiExplain(false)">Close</button></div>'
       + '<div class="field-note" style="margin:2px 0 10px;">For care coordinators. Plain answers to the questions families ask most.</div>'
+      + '<button class="lb-btn lb-btn-primary" style="margin-bottom:6px;" onclick="vaiExplain(false);ccOpenRef(\'va\')">Open the full VA guide (Payors &amp; Programs)</button>'
       + EXPLAIN.map(x => '<div class="vai-ex"><span class="vai-ex-k">' + x[0] + '</span><div>' + x[1] + '</div></div>').join('')
       + '<div class="field-note" style="margin-top:10px;">More: <a href="javascript:void(0)" onclick="vaiExplain(false);ccOpenRef(\'va\')">VA on Payors &amp; Programs</a>. Sources: va.gov, Eligibility for community care outside VA; the CHAMPVA Guidebook; VA survivor benefits.</div></aside>';
   }
