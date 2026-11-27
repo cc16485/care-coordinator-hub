@@ -8404,7 +8404,11 @@ function obtModel(p){
   m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : p.o ? obtDaysSince(p.o.offer_sent_at || p.o.created_at) : (ckdStep1Stuck(j) || {}).days ?? null;
   if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant')) && !obtOfferSent(off)) m.longWait = true;
   m.extra = [];
-  if(off && off.axiscare_push_error && !off.axiscare_applicant_id) m.extra.push({ t:'AxisCare: add by hand', late:true, on:'obtOfferPanel(\'' + bgrEsc(String(off.id)) + '\')', tip:'The Hub could not add them in AxisCare as an applicant: ' + off.axiscare_push_error });
+  /* 2026-11-27 returning caregivers: AxisCare refuses (422) to add someone who still has an old caregiver record. Never
+     tell the office to add or activate them by hand: Send orientation sets the old record to In Training itself. */
+  if(off && off.axiscare_push_error && !off.axiscare_applicant_id) m.extra.push(/\(422\)/.test(String(off.axiscare_push_error))
+    ? { t:'Worked here before?', on:'obtOfferPanel(\'' + bgrEsc(String(off.id)) + '\')', tip:'AxisCare would not add them as a new applicant. That usually means they worked for us before and their old record is still in AxisCare. Do not add or activate them in AxisCare by hand: when their checks clear, Send orientation sets their old record to In Training.' }
+    : { t:'AxisCare: add by hand', late:true, on:'obtOfferPanel(\'' + bgrEsc(String(off.id)) + '\')', tip:'The Hub could not add them in AxisCare as an applicant: ' + off.axiscare_push_error });
   if(c && c.prn_offer && !c.prn_offer.answer) m.extra.push({ t:'PRN offered', on:'ckdPrnAnswer(' + c.id + ')', tip:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call them and record their answer.' });
   const q = c ? ckdQuiet(c, p.stop) : 0;
   if(q && !(c.prn_offer && !c.prn_offer.answer)) m.extra.push({ t:'No word ' + q + 'd', on:'ckdLeaveOpen(' + c.id + ')', tip:'Nothing from them in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', late:true });
