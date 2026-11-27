@@ -373,7 +373,10 @@
     if(simple) h += quickHtml(l, ctx) + basics;   /* 2026-11-23: notes, people, who referred, right under the Next box; the Basics card after them */
     if(!lost) h += hintsHtml(l);   /* 2026-11-11: what the five program questions point to */
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
-    if(!lost && vaShows(l)) h += vaHtml(l);   /* 2026-11-11: VA paperwork, filled in over the phone */
+    /* 2026-11-27: the VA intake (va-intake.js, ops_settings.va_intake_live): a Veteran? question on every open lead, and for a veteran
+       the VA path and the whole intake. While it is off, the VA paperwork card as it was. */
+    if(!lost && window.VaIntake && VaIntake.showing(DATA.ops_settings || {}, typeof ccIsOwner === 'function' && ccIsOwner())) h += VaIntake.html(l);
+    else if(!lost && vaShows(l)) h += vaHtml(l);   /* 2026-11-11: VA paperwork, filled in over the phone */
     h = '<div class="lw-grid"><div class="lw-main">' + h + (simple ? '' : knowHtml(l, ctx, r)) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r, simple) + '</div>';
     host.innerHTML = h; host.style.display = '';
     if(window.LeadBasics) setTimeout(() => LeadBasics.fill(l.id), 0);   /* fills the empty lines from the call, once */
@@ -416,6 +419,9 @@
      Social Security number. Aid & Attendance pension forms are claims only VA-accredited people may help prepare, so we
      send those families to a Veterans Service Officer. Saved on the lead as va_referral. Nothing is sent by the Hub. ── */
   const VA_PHONE = '877-222-8387', CC_PHONE = '(417) 234-8494', CC_FAX = '(417) 719-7870';
+  /* 2026-11-27 (her rules): what the VA sees asks for Caring Companions In-Home Senior Care by its full name, never a specific
+     caregiver; choosing a family member or friend as the caregiver is ours to decide and never goes to the VA. */
+  const CC_FULL = 'Caring Companions In-Home Senior Care';
   const VA_HOW = { fax:'Faxed to the VA clinic', mhv:'The veteran sent it as a My HealtheVet message', mail:'Mailed', call:'Read to the care team on a call', person:'Taken in person' };
   function vaShows(l){ return l.funding_source === 'va' || (R().programAnswer ? R().programAnswer(l, 'veteran') === 'yes' : false); }
   function vaDob(v){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? m[2] + '/' + m[3] + '/' + m[1] : String(v || ''); }
@@ -454,7 +460,7 @@
       + inp('hours', 'Hours a week they are asking about', v.hours, 'e.g. 20')
       + '</div>'
       + '<label class="lb-k" style="display:block;margin:8px 0 3px;">Help they need</label><textarea id="lwVa_needs" rows="2" style="width:100%;">' + esc(v.needs || '') + '</textarea>'
-      + '<div class="grid2">' + inp('cg_name', 'Who they want as their caregiver (optional)', v.cg_name, 'a family member or friend') + inp('cg_rel', 'How they know the veteran', v.cg_rel, 'e.g. daughter, neighbor') + '</div>'
+      + '<div class="grid2">' + inp('cg_name', 'A family member or friend as caregiver (for our office only, never sent to the VA)', v.cg_name, 'a family member or friend') + inp('cg_rel', 'How they know the veteran', v.cg_rel, 'e.g. daughter, neighbor') + '</div>'
       + '<label style="display:flex;gap:8px;align-items:baseline;font-size:13.5px;margin:10px 0 4px;cursor:pointer;"><input type="checkbox" id="lwVa_ok" style="width:auto;flex:none;"' + (v.ok_at ? ' checked' : '') + '>'
       + '<span>' + esc(vaVet(l)) + ' (or the person with their power of attorney) said OK to send this request to the VA' + (v.ok_at ? '<span class="field-note"> · ' + esc(vaDay(v.ok_at)) + (v.ok_by ? ', ' + esc(v.ok_by) : '') + '</span>' : '') + '</span></label>'
       + '<div class="lb-actions" style="margin-top:8px;"><button class="lb-btn" onclick="lwVaSave(this)">Save</button>'
@@ -482,6 +488,7 @@
     l.va_referral = v;
     try{ await persist('leads', l); }catch(e){ if(typeof ccToast === 'function') ccToast('Could not save: ' + (e && e.message || e)); else alert('Could not save'); return false; }
     const card = document.getElementById('lwVa'); if(card){ const tmp = document.createElement('div'); tmp.innerHTML = vaHtml(l); card.replaceWith(tmp.firstChild); }
+    else if(document.getElementById('vaiCard')) render();   /* the VA intake draws the same record */
     const m = document.getElementById('lwVaMsg'); if(m && msg){ m.textContent = msg; m.style.color = 'var(--green)'; }
     return true;
   }
@@ -502,9 +509,8 @@
   window.lwVaCopy = function(btn){
     const l = lead(); if(!l) return; const v = vaRead(l);
     const t = 'To my VA primary care team' + (v.doctor ? ' (' + v.doctor + ')' : '') + ':\n\n'
-      + 'I would like a referral for Homemaker and Home Health Aide care at home through VA Community Care, with Caring Companions. They are in network with the VA Community Care Network, phone ' + CC_PHONE + '.\n\n'
+      + 'I am having a harder time at home. I would like to be assessed for Homemaker and Home Health Aide care through VA Community Care, and I would like ' + CC_FULL + ' to provide it. They are in network with the VA Community Care Network, phone ' + CC_PHONE + '.\n\n'
       + (vaNeedsLine(v) ? 'I need ' + vaNeedsLine(v) + '.\n\n' : '')
-      + (v.cg_name ? 'I would like ' + v.cg_name + (v.cg_rel ? ' (my ' + v.cg_rel + ')' : '') + ' to be my caregiver, hired through Caring Companions.\n\n' : '')
       + 'Thank you,\n' + vaVet(l);
     const done = () => { if(btn){ btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy as a My HealtheVet message'; }, 1600); } };
     if(navigator.clipboard) navigator.clipboard.writeText(t).then(done, () => prompt('Copy this:', t)); else prompt('Copy this:', t);
@@ -520,18 +526,17 @@
     const row = (k, val) => val ? '<tr><td style="padding:3px 12px 3px 0;color:#444;">' + esc(k) + '</td><td style="padding:3px 0;"><b>' + esc(val) + '</b></td></tr>' : '';
     const w = window.open('', '_blank'); if(!w){ if(m){ m.textContent = 'Allow pop-ups to print the letter.'; m.style.color = 'var(--red)'; } return; }
     w.document.write('<html><head><title>VA referral request: ' + esc(vet) + '</title></head><body style="font-family:Arial,sans-serif;font-size:14px;color:#111;max-width:680px;margin:32px auto;line-height:1.5;">'
-      + '<div style="border-bottom:2px solid #0D365F;padding-bottom:8px;margin-bottom:16px;"><b style="font-size:18px;color:#0D365F;">Caring Companions</b><br>Phone ' + CC_PHONE + ' · Fax ' + CC_FAX + '</div>'
+      + '<div style="border-bottom:2px solid #0D365F;padding-bottom:8px;margin-bottom:16px;"><b style="font-size:18px;color:#0D365F;">' + CC_FULL + '</b><br>Phone ' + CC_PHONE + ' · Fax ' + CC_FAX + '</div>'
       + '<p>' + esc(today) + '</p>'
       + '<table style="border-collapse:collapse;margin-bottom:12px;">' + row('To', [v.doctor || 'Primary care team', v.social ? 'Social worker: ' + v.social : ''].filter(Boolean).join(' · ')) + row('Clinic', v.clinic) + row('Clinic phone', v.clinic_phone) + row('Clinic fax', v.clinic_fax) + '</table>'
       + '<p><b>Re: Request for a Homemaker and Home Health Aide (H/HHA) referral through VA Community Care</b></p>'
       + '<table style="border-collapse:collapse;margin-bottom:12px;">' + row('Veteran', vet) + row('Date of birth', vaDob(l.client_dob)) + row('Address', [l.client_address, l.client_city, l.client_state, l.client_zip].filter(Boolean).join(', ')) + row('Phone', l.client_phone || '') + '</table>'
       + '<p>' + esc(vet) + ' asked us to send this request on their behalf on ' + esc(okDay) + '.</p>'
-      + '<p>' + esc(vet) + ' is asking the VA primary care team to consider a referral for Homemaker and Home Health Aide care at home, provided by Caring Companions. We are in network with the VA Community Care Network.</p>'
+      + '<p>' + esc(vet) + ' is asking the VA primary care team to consider a referral for Homemaker and Home Health Aide care at home, provided by ' + CC_FULL + '. We are in network with the VA Community Care Network.</p>'
       + (v.needs ? '<p><b>Help needed:</b> ' + esc(v.needs) + '</p>' : '')
       + (v.hours ? '<p><b>Hours a week the family is asking about:</b> ' + esc(v.hours) + '</p>' : '')
-      + (v.cg_name ? '<p><b>Caregiver the veteran would like:</b> ' + esc(v.cg_name) + (v.cg_rel ? ' (' + esc(v.cg_rel) + ')' : '') + '. They would be hired, trained and supervised by Caring Companions.</p>' : '')
-      + '<p>Please contact ' + (caller && caller !== vet ? esc(caller) + (l.relationship ? ' (' + esc(l.relationship) + ')' : '') + (l.phone ? ' at ' + esc(l.phone) : '') + ', or ' : '') + 'Caring Companions at ' + CC_PHONE + ' with any questions.</p>'
-      + '<p style="margin-top:22px;">Thank you,<br><br>' + esc(me || '__________________') + '<br>Care Coordinator, Caring Companions</p>'
+      + '<p>Please contact ' + (caller && caller !== vet ? esc(caller) + (l.relationship ? ' (' + esc(l.relationship) + ')' : '') + (l.phone ? ' at ' + esc(l.phone) : '') + ', or ' : '') + CC_FULL + ' at ' + CC_PHONE + ' with any questions.</p>'
+      + '<p style="margin-top:22px;">Thank you,<br><br>' + esc(me || '__________________') + '<br>Care Coordinator, ' + CC_FULL + '</p>'
       + '<p style="margin-top:28px;color:#444;">Veteran or representative signature (optional): ______________________ &nbsp; Date: __________</p>'
       + '<p style="font-size:11px;color:#666;margin-top:24px;">Confidential: this fax contains health information about a veteran and is meant only for the VA care team named above. If you received it in error, please call ' + CC_PHONE + '.</p>'
       + '</body></html>');
