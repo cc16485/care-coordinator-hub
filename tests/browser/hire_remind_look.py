@@ -60,11 +60,8 @@ async()=>{
   ok('Keep on list asks first, then closes the check-in on the server (last-chance keep) without opening the card', CONF.some(m=>/Keep them on the list/.test(m)) && window.__INV.some(([n,b])=>n==='last-chance' && b && b.action==='keep' && b.id==='lc1') && !p.open, [CONF, window.__INV]);
 
   switchTab('interviews'); await sleep(200); ivqRender(); await sleep(300); ivqRender(); await sleep(100);
-  const iv=[...document.querySelectorAll('#ivqList > div div, #ivqList div')].find(d=>/Fake Booked/.test(d.innerText) && d.querySelector('.hrm-btn'));
-  ok('Interviews: Send reminder on the upcoming one', !!iv, document.getElementById('ivqList').innerText.slice(0,300));
-  ok('...its history: the booked note and the 2-day reminder', iv && /Reminders: [A-Z][a-z]{2} \d+ automatic, booked note · [A-Z][a-z]{2} \d+ automatic, 2 days before/.test(iv.innerText), iv && iv.innerText);
-  if(iv){ iv.querySelector('.hrm-btn').click(); await sleep(30); }
-  ok('...the button opens the Text window on "About their interview"', OPENED[2] && OPENED[2][0]==='a3' && OPENED[2][1]==='interview', OPENED);
+  /* 2026-11-26 (Samantha): applicants already get automatic interview reminders, so the Interviews tab has no Send reminder */
+  ok('Interviews: the upcoming one is listed with no Send reminder button', /Fake Booked/.test(document.getElementById('ivqList').innerText) && !document.querySelector('#ivqList .hrm-btn'), document.getElementById('ivqList').innerText.slice(0,300));
 
   switchTab('offers'); await sleep(1300);
   for(let i=0;i<30 && !(window.HSTRIP_ENGINE && HSTRIP_ENGINE.offers().length);i++) await sleep(100);

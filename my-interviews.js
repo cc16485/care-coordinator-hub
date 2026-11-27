@@ -8,7 +8,8 @@
      · the day's list: 🎥 Join video (their own coordinators.meeting_link, lit 15 minutes before), 👤 About (the answers
        from the application, no phone or email), Open full profile (HP.open), Call, 📝 How did it go (the Interviews
        screen's own outcome card, ivqOutcome) and 🤝 Hand over (IHO), so there is still one record of everything
-     · Missouri time only (Katlin's page keeps her Vietnam clock)
+     · Missouri time, and (2026-11-25, her ask "it needs to show her day/time in Vietnam") the viewer's own day and time too
+       when their computer is somewhere else, e.g. Katlin in Vietnam sees "6:30 AM Thu in Vietnam" under each time
    Nothing here writes, texts, emails or calls anyone by itself.
    ===================================================================================================================== */
 (function(root){
@@ -29,6 +30,17 @@
   const dayOf = t => new Date(t).toLocaleDateString('en-CA', { timeZone:TZ });
   const mondayOf = day => addDays(day, -((dowOf(day) + 6) % 7));
   const clock = ts => new Date(ts).toLocaleString('en-US', { timeZone:TZ, hour:'numeric', minute:'2-digit' });
+  /* the viewer's own clock, only when it is not Missouri's (Katlin in Vietnam) */
+  const myTZ = () => { try{ return Intl.DateTimeFormat().resolvedOptions().timeZone || TZ; }catch(e){ return TZ; } };
+  const PLACE = { 'Asia/Ho_Chi_Minh':'Vietnam', 'Asia/Saigon':'Vietnam' };
+  const sameClock = ts => new Date(ts).toLocaleString('en-US', { timeZone:myTZ(), weekday:'short', hour:'numeric', minute:'2-digit' })
+    === new Date(ts).toLocaleString('en-US', { timeZone:TZ, weekday:'short', hour:'numeric', minute:'2-digit' });
+  function localSay(ts){
+    const t = typeof ts === 'number' ? ts : Date.parse(ts); if(!t || sameClock(t)) return '';
+    const s = new Date(t).toLocaleString('en-US', { timeZone:myTZ(), weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+    return s + ' ' + (PLACE[myTZ()] ? 'in ' + PLACE[myTZ()] : 'your time');
+  }
+  const localTag = ts => { const x = localSay(ts); return x ? `<span class="mv-local">${esc(x)}</span>` : ''; };
   const longDay = day => new Date(day + 'T12:00:00Z').toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric', timeZone:'UTC' });
 
   /* ── state ── */
@@ -125,7 +137,7 @@
       : w === 'past' ? '<span class="mv-tag" style="--c:#B45309;--b:#FEF3C7">How did it go?</span>' : w === 'now' ? '<span class="mv-tag" style="--c:#1F5E8C;--b:#E6F0F8">Starting</span>' : '';
     const rows = aboutRows(a, b);
     return `<div class="mv-iv${w === 'now' ? ' live' : ''}">
-      <div class="mv-iv-top"><span class="mv-iv-time">${isVideo(b) ? '🎥' : '🏢'} ${esc(clock(t))}</span><span class="mv-when">${isVideo(b) ? 'Video' : 'In person'}</span>${st}</div>
+      <div class="mv-iv-top"><span class="mv-iv-time">${isVideo(b) ? '🎥' : '🏢'} ${esc(clock(t))} Missouri</span>${localTag(t)}<span class="mv-when">${isVideo(b) ? 'Video' : 'In person'}</span>${st}</div>
       <div class="mv-iv-name">${esc(ivName(a))} <span class="mv-when">· ${esc(a.posting_title || a.position || 'Caregiver')} interview</span></div>
       <div class="mv-acts">${joinBtn(b, now, true)}
         <button onclick="MIV.toggle(${enc(key)})">${open ? 'Hide' : '👤 About ' + esc(a.first_name || 'them')}</button>
@@ -147,6 +159,7 @@
 .miv .mv-top select,.miv .mv-top button,.miv .mv-acts button,.miv .mv-acts a.mv-a{font:inherit;font-size:13.5px;padding:6px 12px;border-radius:8px;border:1px solid #cfd8e3;background:#fff;color:#0D365F;cursor:pointer;text-decoration:none}
 .miv .mv-bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#E6F0F8;border:1px solid #c7dbee;border-radius:12px;padding:12px 16px;margin-bottom:14px}
 .miv .mv-bar b{color:#0D365F}
+.miv .mv-local{display:inline-block;background:#FEF3C7;color:#92400E;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;margin-left:6px}
 .miv .mv-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-bottom:16px}
 .miv .mv-col{background:#fff;border:1px solid #e1e7ee;border-radius:10px;padding:8px;min-height:96px;cursor:pointer}
 .miv .mv-col.sel{border-color:#1F5E8C;box-shadow:0 0 0 2px #1F5E8C33}
@@ -187,10 +200,10 @@
     const picker = owner() && S.coords.length > 1 ? `<label class="mv-when">Whose <select onchange="MIV.setWho(this.value)">${S.coords.map(c => `<option value="${esc(c.id)}"${c.id === S.who ? ' selected' : ''}>${esc(firstOf(c))}${lc(c.email) === me() ? ' (you)' : ''}</option>`).join('')}</select></label>` : '';
     const days = [0,1,2,3,4,5,6].map(i => addDays(S.week, i));
     const linkSay = r.meeting_link ? `${mine() ? 'Your' : esc(nm) + "'s"} video room: <a href="${esc(r.meeting_link)}" target="_blank" rel="noopener">${esc(r.meeting_link.replace(/^https?:\/\//, ''))}</a>` : (mine() ? 'No video link on your profile yet. Add it on the Team Calendar (🎥 Add video link).' : 'No video link saved for ' + esc(nm) + ' yet.');
-    const nextSay = next ? `🎥 Next: <b>${esc(longDay(dayOf(next.starts_at)) === longDay(today) ? 'Today' : longDay(dayOf(next.starts_at)))} ${esc(clock(Date.parse(next.starts_at)))}</b> with <b>${esc(ivShort(S.apps[next.applicant_id] || {}))}</b> ${joinBtn(next, now, false)}` : 'No interviews booked coming up.';
+    const nextSay = next ? `🎥 Next: <b>${esc(longDay(dayOf(next.starts_at)) === longDay(today) ? 'Today' : longDay(dayOf(next.starts_at)))} ${esc(clock(Date.parse(next.starts_at)))}</b> Missouri${localSay(next.starts_at) ? ' (<b>' + esc(localSay(next.starts_at)) + '</b>)' : ''} with <b>${esc(ivShort(S.apps[next.applicant_id] || {}))}</b> ${joinBtn(next, now, false)}` : 'No interviews booked coming up.';
     return `<div class="miv">
       <div class="mv-h">${mine() ? 'My interviews' : esc(nm) + "'s interviews"}</div>
-      <div class="mv-sub">${mine() ? 'Every interview booked with you. Press 👤 About to read their application before you start. 🎥 Join video opens your video room and lights up 15 minutes before. Afterwards press 📝 How did it go?' : 'What ' + esc(nm) + ' sees: every interview booked with them.'} Times are Missouri time.</div>
+      <div class="mv-sub">${mine() ? 'Every interview booked with you. Press 👤 About to read their application before you start. 🎥 Join video opens your video room and lights up 15 minutes before. Afterwards press 📝 How did it go?' : 'What ' + esc(nm) + ' sees: every interview booked with them.'} Times are Missouri time${localSay(Date.now()) ? ', with your ' + (PLACE[myTZ()] ? PLACE[myTZ()] + ' ' : '') + 'day and time under each one. Right now it is ' + esc(clock(Date.now())) + ' in Missouri and ' + esc(localSay(Date.now())) : ''}.</div>
       ${S.err ? `<div class="mv-err">${esc(S.err)}</div>` : ''}
       <div class="mv-bar"><div>${nextSay}</div><div class="mv-when" style="margin-left:auto">${linkSay}</div></div>
       <div class="mv-top">${picker}
@@ -220,7 +233,7 @@
   setInterval(() => { try{ if(active() === 'myinterviews' && !document.hidden){ const el = document.getElementById('mivWrap'); if(el){ css(); el.innerHTML = view(Date.now()); } loadIv(false); } }catch(e){} }, 60e3);
 
   const MIV = {
-    allowed, render, pillSync, _s:S, _rules:{ ivWhen, aboutRows, ivOn, mondayOf },
+    allowed, render, pillSync, localSay, _s:S, _rules:{ ivWhen, aboutRows, ivOn, mondayOf },
     setWho(id){ S.who = String(id); S.list = null; S.loadedFor = ''; S.open = {}; render(); loadIv(true); },
     pick(day){ S.sel = String(day); render(); },
     shift(n){ S.week = addDays(S.week || mondayOf(dayOf(Date.now())), n); S.sel = S.week; render(); },
