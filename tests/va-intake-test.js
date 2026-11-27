@@ -33,6 +33,23 @@ eq(keys({ va_referral:{ calling_for:'spouse', enrolled:'yes' } }), ['first:now',
 eq(keys({ va_referral:{ calling_for:'spouse', checklist_at:'x' } })[1], 'vso:now', '...the VSO is next after the first call');
 ok(/Survivors Pension/.test(V.reminderFor('spouse', {}, T).why) && V.reminderFor('spouse', {}, T).day === '2026-12-04', 'spouse: the reminder in 7 days is about the VSO and the Survivors Pension');
 ok(/private pay/.test(V.reminderFor('vso_set', {}, T).why), '...after the VSO meeting is set: how did it go, care is private pay');
+/* a lead from the veterans web page opens already answered */
+const note = (who, en, time) => 'VA COMMUNITY CARE. From the Veterans page. They said: ' + who + '. Veteran enrolled in VA health care: ' + en + '. Where: 65803. Best time to call: ' + time + '. Agreed to text messages: yes.\nCare for: Veteran';
+eq(V.fromForm({ interest_notes:note("I'm the veteran", 'Yes', 'Afternoon') }), { who:'self', enrolled:'yes', best_time:'Afternoon' }, 'the form note is read: the veteran, enrolled, afternoon');
+eq(V.fromForm({ interest_notes:note("I'm helping a veteran get care", 'Not sure', 'any time') }), { who:'helper', enrolled:'not_sure', best_time:'' }, '...helping a veteran, not sure, any time');
+eq(V.fromForm({ interest_notes:note("I want to be the veteran's caregiver", 'not given', 'Morning') }).who, 'caregiver', '...wants to be the caregiver');
+ok(V.fromForm({ interest_notes:'Mom fell last week' }) === null && V.isVeteran({ interest_notes:note("I'm the veteran", 'Yes', 'Afternoon') }), 'only the veterans page note counts, and it makes the lead a veteran');
+const st = { id:'s1', first_name:'Steven', last_name:'Test', phone:'4175550100', interest_notes:note("I'm the veteran", 'Yes', 'Afternoon') };
+const got = V.applyForm(st, T);
+ok(st.program_check.veteran === 'yes' && st.va_referral.enrolled === 'yes' && st.va_referral.best_time === 'Afternoon' && st.va_referral.calling_for === 'veteran' && st.relationship === 'self' && st.client_first_name === 'Steven' && st.client_last_name === 'Test' && got.length === 6, 'I am the veteran: Veteran yes, enrolled, afternoon, calling for the veteran, the caller is the veteran and the client (6 lines)');
+eq(V.applyForm(st, T), [], '...only once');
+const kept = { id:'s2', first_name:'Ann', relationship:'daughter', program_check:{ veteran:'no' }, va_referral:{ enrolled:'no', best_time:'9 am' }, interest_notes:note("I'm the veteran", 'Yes', 'Afternoon') };
+V.applyForm(kept, T);
+ok(kept.program_check.veteran === 'no' && kept.va_referral.enrolled === 'no' && kept.va_referral.best_time === '9 am' && kept.relationship === 'daughter', 'what a person already typed is never overwritten');
+const cg = { id:'s3', first_name:'Lee', last_name:'Ray', phone:'4175550111', interest_notes:note("I want to be the veteran's caregiver", 'No', 'Evening') };
+V.applyForm(cg, T);
+ok(cg.va_referral.cg_choice === 'family' && cg.va_referral.cg_name === 'Lee Ray' && cg.va_referral.cg_phone === '4175550111' && cg.va_referral.enrolled === 'no' && !cg.relationship, 'wants to be the caregiver: family or friend caregiver = the caller, and the caller is not made the veteran');
+
 /* the explainer drawer */
 const ex = V.EXPLAIN.map(x => x[0]);
 ok(['What it is', 'Who qualifies', 'A surviving spouse does not qualify', 'How it starts', 'Who pays', 'Hours', 'The caregiver', 'Not the same thing', 'Never'].every(k => ex.includes(k)), 'the drawer answers what it is, who qualifies, spouses, how it starts, who pays, hours, caregiver, what it is not, never');

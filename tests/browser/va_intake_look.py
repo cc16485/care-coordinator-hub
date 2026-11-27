@@ -33,6 +33,7 @@ STUB = r"""
   DATA.leads=[
     Object.assign({ id:'vet1', first_name:'Linda', last_name:'Price', relationship:'daughter', phone:'4175550142', client_first_name:'Harold', client_last_name:'Price', client_city:'Springfield', funding_source:'private' }, base),
     Object.assign({ id:'old1', first_name:'Pat', last_name:'Moss', relationship:'son', phone:'4175550150', client_first_name:'Dale', client_last_name:'Moss', funding_source:'va', va_referral:{ cg_name:'Pat Moss', cg_rel:'son', ok_at:'2026-11-20T15:00:00Z', clinic:'Example VA clinic' } }, base),
+    Object.assign({ id:'web1', first_name:'Steve', last_name:'Tester', phone:'4175550190', source:'Website', interest_notes:"VA COMMUNITY CARE. From the Veterans page. They said: I'm the veteran. Veteran enrolled in VA health care: Yes. Where: 65803. Best time to call: Afternoon. Agreed to text messages: yes.\nCare for: Veteran" }, base),
     Object.assign({ id:'fam2', first_name:'Ann', last_name:'Lowe', relationship:'daughter', phone:'4175550160', client_first_name:'Ruth', client_last_name:'Lowe' }, base) ];
 })();
 """
@@ -123,6 +124,12 @@ async()=>{
   await vaiStep('first'); await sleep(200); await vaiStep('vso'); await sleep(250); w=last('fam2');
   ok('VSO meeting set: logged, and the next reminder asks how it went (private pay)', !!w.va_referral.vso_at && /private pay/.test(w.follow_up_note) && /Talked through private pay/.test(H()));
   await openClient({ lead_id:'vet1' }, 'summary'); await sleep(300);
+  /* a lead from the veterans web page */
+  await openClient({ lead_id:'web1' }, 'summary'); await sleep(600); w=last('web1');
+  ok('a veterans page lead opens already answered: Veteran yes, enrolled yes, afternoon, the caller is the veteran, saved once with a note', w && w.program_check.veteran==='yes' && w.va_referral.enrolled==='yes' && w.va_referral.best_time==='Afternoon' && w.relationship==='self' && w.client_first_name==='Steve' && /veterans page form/.test(w.comm_log.slice(-1)[0].body) && w.follow_up_due==='2026-12-04', w && [w.program_check, w.va_referral, w.follow_up_due]);
+  ok('...the VA path and intake show, with "check them with them on the call", and Enrolled Yes is picked', !!document.getElementById('vaiCard') && /came from the veterans page form/.test(H()) && [...document.querySelectorAll('#vaiCard .lb-btn-primary')].some(b=>b.textContent==='Yes') && document.getElementById('vai_best_time').value==='Afternoon');
+  const nW=window.__log.writes.filter(x=>x.id==='web1').length; await openClient({ lead_id:'web1' }, 'summary'); await sleep(500);
+  ok('...opening it again does not fill or save again', window.__log.writes.filter(x=>x.id==='web1').length===nW);
   /* Settings */
   switchTab('settings'); await sleep(300); vaiSetFill();
   ok('Settings → Leads: the VA intake switch says On (it was set for this test) and owners can change it', /On\./.test(document.getElementById('vaiSetNow').innerText));
